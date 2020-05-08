@@ -1,7 +1,6 @@
 // TODO: Reqwest is curretly configured in blokcing mode. To support both blocking and
 // non-blocking modes one needs to use conditional complilation ?
 //
-use std::collections::HashMap;
 use std::env::consts::OS;
 use reqwest;
 use reqwest::header;
@@ -91,77 +90,48 @@ pub fn builder() -> Builder {
 
 // Off client -----------------------------------------------------------------
 
-#[derive(Hash, Eq, PartialEq)]
-pub enum Taxonomy {
-    Additives,
-    AdditiveClasses,    // TODO: alias for NovaGroups ?
-    Allergens,
-    Brands,
-    Countries,
-    Ingredients,
-    IngredientsAnalysis,
-    Languages,
-    NovaGroups,
-    NutrientLevels,
-    ProductStates,
-}
 
-type TaxonomyNames = HashMap<Taxonomy, &'static str>;
+// TODO: There is a way to get the str out of taxonomy::Taxonomy without
+// having to use .0.
 
-fn make_taxonomy_names() -> TaxonomyNames {
-  // TODO: Set the capactity to len(Taxonomies)
-  let mut names = HashMap::new();
-  names.insert(Taxonomy::Additives, "additives");
-  names.insert(Taxonomy::AdditiveClasses, "additives_classes"); // Note the '_'
-  names.insert(Taxonomy::Allergens, "allergens");
-  names.insert(Taxonomy::Brands, "brands");
-  names.insert(Taxonomy::Countries, "countries");
-  names.insert(Taxonomy::Ingredients, "ingredients");
-  names.insert(Taxonomy::IngredientsAnalysis, "ingredients-analysis");  // Note the '-'
-  names.insert(Taxonomy::Languages, "languages");
-  names.insert(Taxonomy::NovaGroups, "nova_groups");
-  names.insert(Taxonomy::NutrientLevels, "nutrient_levels");
-  names.insert(Taxonomy::ProductStates, "states");
-  names
+pub mod taxonomy {
+  pub struct Taxonomy(pub &'static str);
+
+  macro_rules! taxonomy {
+    ($c:ident, $n:expr) => {pub const $c: Taxonomy = Taxonomy($n);}
+  }
+
+  taxonomy!(ADDITIVES, "additives");
+  taxonomy!(ADDITIVE_CLASSES, "additives_classes");
+  taxonomy!(ALLERGENS, "allergens");
+  taxonomy!(BRANDS, "brands");
+  taxonomy!(COUNTRIES, "countries");
+  taxonomy!(INGREDIENTS, "ingredients");
+  taxonomy!(INGREDIENT_ANALYSIS, "ingredients-analysis");  // Note the '-'
+  taxonomy!(LANGUAGES, "languages");
+  taxonomy!(NOVA_GROUPS, "nova_groups");
+  taxonomy!(NUTRIENT_LEVELS, "nutrient_levels");
+  taxonomy!(PRODUCT_STATES, "states");
 }
 
 
-// TODO: Most taxonomies support facets (but seems that not all of them)
-//       Some facets are not taxonomies (labels) ? Are there any others ?
-#[derive(Hash, Eq, PartialEq)]
-pub enum Facet {
-    Additives,
-    Allergens,
-    Brands,
-    Countries,
-    Ingredients,
-    IngredientsAnalysis,
-    Languages,
-    ProductStates,
-    Labels,   // Not a taxonomy
+pub mod facet {
+  pub struct Facet(pub &'static str);
+
+  macro_rules! facet {
+    ($c:ident, $n:expr) => {pub const $c: Facet = Facet($n);}
+  }
+
+  facet!(ADDITIVES, "additives");
+  facet!(ALLERGENS, "allergens");
+  facet!(BRANDS, "brands");
+  facet!(COUNTRIES, "countries");
+  facet!(INGREDIENTS, "ingredients");
+  facet!(INGREDIENT_ANALYSIS, "ingredients-analysis");  // Note the '-'
+  facet!(LANGUAGES, "languages");
+  facet!(PRODUCT_STATES, "states");
+  facet!(LABELS, "labels");
 }
-
-type FacetNames = HashMap<Facet, &'static str>;
-
-fn make_facet_names() -> FacetNames {
-  // TODO: Set the capactity to len(Taxonomies)
-  let mut names = HashMap::new();
-  names.insert(Facet::Additives, "additives");
-  names.insert(Facet::Allergens, "allergens");
-  names.insert(Facet::Brands, "brands");
-  names.insert(Facet::Countries, "countries");
-  names.insert(Facet::Ingredients, "ingredients");
-  names.insert(Facet::IngredientsAnalysis, "ingredients-analysis");
-  names.insert(Facet::Languages, "languages");
-  names.insert(Facet::ProductStates, "states");
-  names.insert(Facet::Labels, "labels");
-  names
-}
-
-
-// TODO: Using thread local now but be replaced by singleton.
-thread_local!(static TAXONOMY_NAMES: TaxonomyNames = make_taxonomy_names());
-thread_local!(static FACET_NAMES: FacetNames = make_facet_names());
 
 
 pub struct Off {
@@ -173,12 +143,12 @@ pub struct Off {
 // page and locale should be optional.
 impl Off {
     // Get a taxonomy.
-    pub fn taxonomy(&self, taxonomy: &Taxonomy) {
+    pub fn taxonomy(&self, taxonomy: &taxonomy::Taxonomy) {
 
     }
 
     // Get a facet.
-    pub fn facet(&self, facet: &Facet, locale: Option<&str>) {
+    pub fn facet(&self, facet: &facet::Facet, locale: Option<&str>) {
 
     }
 
@@ -208,7 +178,6 @@ impl Off {
         format!("https://{}.openfoodfacts.org", locale.unwrap_or(&self.locale))
     }
 }
-
 
 
 #[cfg(test)]
@@ -253,13 +222,13 @@ mod tests {
         assert_eq!(off.base_url(Some("gr")), "https://gr.openfoodfacts.org");
     }
 
-    // Build the name map
     #[test]
-    fn test_api_names_maps() {
-      let taxonomy_names = make_taxonomy_names();
-      assert_eq!(taxonomy_names.get(&Taxonomy::Additives), Some(&"additives"));
+    fn test_taxonomy_const() {
+      assert_eq!(taxonomy::ALLERGENS.0, "allergens");
+    }
 
-      let facet_names = make_facet_names();
-      assert_eq!(facet_names.get(&Facet::Additives), Some(&"additives"));
+    #[test]
+    fn test_facet_const() {
+      assert_eq!(facet::LABELS.0, "labels");
     }
 }
