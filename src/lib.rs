@@ -1,3 +1,7 @@
+// TODO: Reqwest is curretly configured in blokcing mode. To support both blocking and
+// non-blocking modes one needs to use conditional complilation ?
+//
+use std::collections::HashMap;
 use std::env::consts::OS;
 use reqwest;
 use reqwest::header;
@@ -87,12 +91,12 @@ pub fn builder() -> Builder {
 
 // Off client -----------------------------------------------------------------
 
+#[derive(Hash, Eq, PartialEq)]
 pub enum Taxonomy {
     Additives,
     AdditiveClasses,    // TODO: alias for NovaGroups ?
     Allergens,
     Brands,
-    Categories,         // TODO: Mentioned in the API docs but no example given
     Countries,
     Ingredients,
     IngredientsAnalysis,
@@ -102,6 +106,29 @@ pub enum Taxonomy {
     ProductStates,
 }
 
+type TaxonomyNames = HashMap<Taxonomy, &'static str>;
+
+fn make_taxonomy_names() -> TaxonomyNames {
+  // TODO: Set the capactity to len(Taxonomies)
+  let mut names = HashMap::new();
+  names.insert(Taxonomy::Additives, "additives");
+  names.insert(Taxonomy::AdditiveClasses, "additives_classes"); // Note the '_'
+  names.insert(Taxonomy::Allergens, "allergens");
+  names.insert(Taxonomy::Brands, "brands");
+  names.insert(Taxonomy::Countries, "countries");
+  names.insert(Taxonomy::Ingredients, "ingredients");
+  names.insert(Taxonomy::IngredientsAnalysis, "ingredients-analysis");  // Note the '-'
+  names.insert(Taxonomy::Languages, "languages");
+  names.insert(Taxonomy::NovaGroups, "nova_groups");
+  names.insert(Taxonomy::NutrientLevels, "nutrient_levels");
+  names.insert(Taxonomy::ProductStates, "states");
+  names
+}
+
+
+// TODO: Most taxonomies support facets (but seems that not all of them)
+//       Some facets are not taxonomies (labels) ? Are there any others ?
+#[derive(Hash, Eq, PartialEq)]
 pub enum Facet {
     Additives,
     Allergens,
@@ -111,7 +138,31 @@ pub enum Facet {
     IngredientsAnalysis,
     Languages,
     ProductStates,
+    Labels,   // Not a taxonomy
 }
+
+type FacetNames = HashMap<Facet, &'static str>;
+
+fn make_facet_names() -> FacetNames {
+  // TODO: Set the capactity to len(Taxonomies)
+  let mut names = HashMap::new();
+  names.insert(Facet::Additives, "additives");
+  names.insert(Facet::Allergens, "allergens");
+  names.insert(Facet::Brands, "brands");
+  names.insert(Facet::Countries, "countries");
+  names.insert(Facet::Ingredients, "ingredients");
+  names.insert(Facet::IngredientsAnalysis, "ingredients-analysis");
+  names.insert(Facet::Languages, "languages");
+  names.insert(Facet::ProductStates, "states");
+  names.insert(Facet::Labels, "labels");
+  names
+}
+
+
+// TODO: Using thread local now but be replaced by singleton.
+thread_local!(static TAXONOMY_NAMES: TaxonomyNames = make_taxonomy_names());
+thread_local!(static FACET_NAMES: FacetNames = make_facet_names());
+
 
 pub struct Off {
     locale: String,           // The default locale
@@ -122,17 +173,22 @@ pub struct Off {
 // page and locale should be optional.
 impl Off {
     // Get a taxonomy.
-    pub fn taxonomy(&self, taxonomy: Taxonomy) {
+    pub fn taxonomy(&self, taxonomy: &Taxonomy) {
 
     }
 
     // Get a facet.
-    pub fn facet(&self, facet: Facet, locale: Option<&str>) {
+    pub fn facet(&self, facet: &Facet, locale: Option<&str>) {
 
     }
 
     // Get categories ??
     pub fn categories(&self) {}
+
+    // Get category
+    pub fn category(&self, category: &str) {
+
+    }
 
     // Get product by barcode.
     pub fn product(&self, barcode: &str, page: Option<u32>, locale: Option<&str>) {
@@ -161,7 +217,7 @@ mod tests {
 
     // Get a Builder with default options.
     #[test]
-    fn builder_default_options() {
+    fn test_builder_default_options() {
         let builder = builder();
         assert_eq!(builder.options.locale, "world");
         assert_eq!(builder.options.auth, None);
@@ -173,7 +229,7 @@ mod tests {
 
     // Set Builder options.
     #[test]
-    fn builder_with_options() {
+    fn test_builder_with_options() {
         let builder = builder().locale("gr")
                            .auth("user", "pwd")
                            .user_agent("user agent");
@@ -185,15 +241,25 @@ mod tests {
 
     // Get base URL with default locale
     #[test]
-    fn off_base_url_default() {
+    fn test_off_base_url_default() {
         let off = client().unwrap();
         assert_eq!(off.base_url(None), "https://world.openfoodfacts.org");
     }
 
     // Get base URL with given locale
     #[test]
-    fn off_base_url_locale() {
+    fn test_off_base_url_locale() {
         let off = client().unwrap();
         assert_eq!(off.base_url(Some("gr")), "https://gr.openfoodfacts.org");
+    }
+
+    // Build the name map
+    #[test]
+    fn test_api_names_maps() {
+      let taxonomy_names = make_taxonomy_names();
+      assert_eq!(taxonomy_names.get(&Taxonomy::Additives), Some(&"additives"));
+
+      let facet_names = make_facet_names();
+      assert_eq!(facet_names.get(&Facet::Additives), Some(&"additives"));
     }
 }
