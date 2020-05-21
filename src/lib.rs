@@ -2,9 +2,10 @@
 // non-blocking modes one needs to use conditional complilation ?
 //
 use std::env::consts::OS;
-use reqwest;
+use std::error::Error;
+use reqwest::blocking::{Client, Response};
 use reqwest::header;
-
+use url::{Url, ParseError};
 
 // Builder --------------------------------------------------------------------
 
@@ -40,6 +41,7 @@ impl Builder {
         self
     }
 
+    // Create a new Off client with the current Builder options.
     // After build() is called, the Builder object is invalid.
     pub fn build(self) -> Result<Off, reqwest::Error> {
       let mut headers = header::HeaderMap::new();
@@ -52,7 +54,7 @@ impl Builder {
       //     headers.insert(reqwest::header::AUTHORIZATION,
       //                  reqwest::header::HeaderValue::from_str("Basic name:pwd"));
       // }
-      let mut cb = reqwest::Client::builder();
+      let mut cb = Client::builder();
       if !headers.is_empty() {
         cb = cb.default_headers(headers);
       }
@@ -62,6 +64,7 @@ impl Builder {
       })
     }
 
+    // Create a new Builder
     fn new() -> Self {
         Self {
             options: Options {
@@ -77,12 +80,13 @@ impl Builder {
     }
 }
 
-
+// Return a new Off builder with the default options.
 pub fn client() -> Result<Off, reqwest::Error> {
     Builder::new().build()
 }
 
 
+// Return a Builder inititalzed with defaults.
 pub fn builder() -> Builder {
     Builder::new()
 }
@@ -91,8 +95,8 @@ pub fn builder() -> Builder {
 // Off client -----------------------------------------------------------------
 
 
-// TODO: There is a way to get the str out of taxonomy::Taxonomy without
-// having to use .0.
+// TODO: Is there a way to get the str out of taxonomy::Taxonomy without
+// having to use .0 ?
 
 pub mod taxonomy {
   pub struct Taxonomy(pub &'static str);
@@ -136,28 +140,46 @@ pub mod facet {
 
 pub struct Off {
     locale: String,           // The default locale
-    client: reqwest::Client
+    client: Client
 }
+
+
+type OffResult = Result<Response, Box<dyn Error>>;
+
 
 // All functions will return a Result object
 // page and locale should be optional.
 impl Off {
     // Get a taxonomy.
-    pub fn taxonomy(&self, taxonomy: &taxonomy::Taxonomy) {
-
+    pub fn taxonomy(&self, taxonomy: &taxonomy::Taxonomy) -> OffResult {
+      let base = self.base_url(Some("world"))?;
+      let url = base.join(&format!("data/taxonomies/{}.json", taxonomy.0))?;
+      let response = self.client.get(url).send()?;
+      Ok(response)
     }
 
     // Get a facet.
-    pub fn facet(&self, facet: &facet::Facet, locale: Option<&str>) {
-
+    pub fn facet(&self, facet: &facet::Facet, locale: Option<&str>) -> OffResult {
+      let base = self.base_url(locale)?;
+      let url = base.join(&format!("{}.json", facet.0))?;
+      let response = self.client.get(url).send()?;
+      Ok(response)
     }
 
-    // Get categories ??
-    pub fn categories(&self) {}
+    // Get categories.
+    pub fn categories(&self, locale: Option<&str>) -> OffResult {
+      let base = self.base_url(locale)?;
+      let url = base.join("categories.json")?;
+      let response = self.client.get(url).send()?;
+      Ok(response)
+    }
 
     // Get category
-    pub fn category(&self, category: &str) {
-
+    pub fn category(&self, category: &str, locale: Option<&str>) -> OffResult {
+      let base = self.base_url(locale)?;
+      let url = base.join(&format!("category/{}.json", category))?;
+      let response = self.client.get(url).send()?;
+      Ok(response)
     }
 
     // Get product by barcode.
@@ -173,9 +195,9 @@ impl Off {
     // Get products by category
     // Get product by product state
 
-    // TODO: Use a macro instead ?
-    fn base_url(&self, locale: Option<&str>) -> String {
-        format!("https://{}.openfoodfacts.org", locale.unwrap_or(&self.locale))
+    fn base_url(&self, locale: Option<&str>) -> Result<Url, ParseError> {
+        let url = format!("https://{}.openfoodfacts.org/", locale.unwrap_or(&self.locale));
+        Url::parse(&url)
     }
 }
 
@@ -212,14 +234,14 @@ mod tests {
     #[test]
     fn test_off_base_url_default() {
         let off = client().unwrap();
-        assert_eq!(off.base_url(None), "https://world.openfoodfacts.org");
+        assert_eq!(off.base_url(None).unwrap().as_str(), "https://world.openfoodfacts.org/");
     }
 
     // Get base URL with given locale
     #[test]
     fn test_off_base_url_locale() {
         let off = client().unwrap();
-        assert_eq!(off.base_url(Some("gr")), "https://gr.openfoodfacts.org");
+        assert_eq!(off.base_url(Some("gr")).unwrap().as_str(), "https://gr.openfoodfacts.org/");
     }
 
     #[test]
@@ -231,4 +253,62 @@ mod tests {
     fn test_facet_const() {
       assert_eq!(facet::LABELS.0, "labels");
     }
+
+    #[test]
+    fn test_get_taxonomy() {
+      let off = client().unwrap();
+      let response = off.taxonomy(&taxonomy::NOVA_GROUPS).unwrap();
+      assert_eq!(response.url().as_str(),
+                 "https://world.openfoodfacts.org/data/taxonomies/nova_groups.json");
+      assert_eq!(response.status().is_success(), true);
+  }
+
+  #[test]
+  fn test_get_facet_default() {
+    let off = client().unwrap();
+    let response = off.facet(&facet::BRANDS, None).unwrap();  // None : defaut locale (world)
+    assert_eq!(response.url().as_str(), "https://world.openfoodfacts.org/brands.json");
+    assert_eq!(response.status().is_success(), true);
+  }
+
+  #[test]
+  fn test_get_facet_locale() {
+    let off = client().unwrap();
+    let response = off.facet(&facet::BRANDS, Some("gr")).unwrap();
+    assert_eq!(response.url().as_str(), "https://gr.openfoodfacts.org/brands.json");
+    assert_eq!(response.status().is_success(), true);
+  }
+
+  #[test]
+  fn test_get_categories_default() {
+    let off = client().unwrap();
+    let response = off.categories(None).unwrap();   // None : defaut locale (world)
+    assert_eq!(response.url().as_str(), "https://world.openfoodfacts.org/categories.json");
+    assert_eq!(response.status().is_success(), true);
+  }
+
+  #[test]
+  fn test_get_categories_locale() {
+    let off = client().unwrap();
+    let response = off.categories(Some("gr")).unwrap();
+    assert_eq!(response.url().as_str(), "https://gr.openfoodfacts.org/categories.json");
+    assert_eq!(response.status().is_success(), true);
+  }
+
+  #[test]
+  fn test_get_category_default() {
+    let off = client().unwrap();
+    let response = off.category("cheeses", None).unwrap();   // None : defaut locale (world)
+    assert_eq!(response.url().as_str(), "https://world.openfoodfacts.org/category/cheeses.json");
+    assert_eq!(response.status().is_success(), true);
+  }
+
+  // Fails: Probably the category name is returned in the locale language ??
+  #[test]
+  fn test_get_category_locale() {
+    let off = client().unwrap();
+    let response = off.category("cheeses", Some("gr")).unwrap();
+    assert_eq!(response.url().as_str(), "https://gr.openfoodfacts.org/category/cheeses.json");
+    assert_eq!(response.status().is_success(), true);
+  }
 }
