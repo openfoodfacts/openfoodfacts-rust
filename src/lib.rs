@@ -97,6 +97,8 @@ pub fn builder() -> Builder {
 
 // TODO: Is there a way to get the str out of taxonomy::Taxonomy without
 // having to use .0 ?
+// TODO: Support language in subdomain:
+//  locale can be <country> (world, gr, fr) or <country>-<language> (gr-en)
 
 pub mod taxonomy {
   pub struct Taxonomy(pub &'static str);
@@ -147,50 +149,71 @@ pub struct Off {
 type OffResult = Result<Response, Box<dyn Error>>;
 
 
+// https://wiki.openfoodfacts.org/API/Read/Search
+// search_terms: list of terms
+// format: Always JSON
+// page_size: usize
+// sort_by: String or Enum (Popularity, Product name, Add date, Edit date, Completness)
+// tags : A collection of tuples (name, op, value) ? -> tag_0 ... tag_N
+// nutrients: A collection of tuples (name, op, value) ? -> nutriment_0 ... nutriment_N
+// Zero or more pairs (name, value)
+// All names parameters search_terms .. nutrient0 can in fact be given using the pair
+// form.
+// TODO:
+type SearchParams = [String];
+
+
 // All functions will return a Result object
 // page and locale should be optional.
 impl Off {
     // Get a taxonomy.
     pub fn taxonomy(&self, taxonomy: &taxonomy::Taxonomy) -> OffResult {
-      let base = self.base_url(Some("world"))?;
-      let url = base.join(&format!("data/taxonomies/{}.json", taxonomy.0))?;
+      let base_url = self.base_url(Some("world"))?;
+      let url = base_url.join(&format!("data/taxonomies/{}.json", taxonomy.0))?;
       let response = self.client.get(url).send()?;
       Ok(response)
     }
 
     // Get a facet.
     pub fn facet(&self, facet: &facet::Facet, locale: Option<&str>) -> OffResult {
-      let base = self.base_url(locale)?;
-      let url = base.join(&format!("{}.json", facet.0))?;
+      let base_url = self.base_url(locale)?;
+      let url = base_url.join(&format!("{}.json", facet.0))?;
       let response = self.client.get(url).send()?;
       Ok(response)
     }
 
     // Get categories.
     pub fn categories(&self, locale: Option<&str>) -> OffResult {
-      let base = self.base_url(locale)?;
-      let url = base.join("categories.json")?;
+      let base_url = self.base_url(locale)?;
+      let url = base_url.join("categories.json")?;
       let response = self.client.get(url).send()?;
       Ok(response)
     }
 
     // Get category
     pub fn category(&self, category: &str, locale: Option<&str>) -> OffResult {
-      let base = self.base_url(locale)?;
-      let url = base.join(&format!("category/{}.json", category))?;
+      let base_url = self.base_url(locale)?;
+      let url = base_url.join(&format!("category/{}.json", category))?;
       let response = self.client.get(url).send()?;
       Ok(response)
     }
 
     // Get product by barcode.
-    pub fn product(&self, barcode: &str, page: Option<u32>, locale: Option<&str>) {
+    pub fn product(&self, barcode: &str, locale: Option<&str>) -> OffResult {
+      let api_url = self.api_url(locale)?;
+      let url = api_url.join(&format!("product/{}", barcode))?;
+      let response = self.client.get(url).send()?;
+      Ok(response)
     }
 
     // Search products.
-    pub fn search(&self) {
+    pub fn search(&self, params: &SearchParams, page: usize, locale: Option<&str>) -> OffResult {
+      let search_url = self.search_url(locale)?;
+      let response = self.client.get(search_url).query(params).send()?;
+      Ok(response)
     }
 
-    // Other
+    // TODO: Other ?
     // Get products by additive
     // Get products by category
     // Get product by product state
@@ -198,6 +221,16 @@ impl Off {
     fn base_url(&self, locale: Option<&str>) -> Result<Url, ParseError> {
         let url = format!("https://{}.openfoodfacts.org/", locale.unwrap_or(&self.locale));
         Url::parse(&url)
+    }
+
+    fn api_url(&self, locale: Option<&str>) -> Result<Url, ParseError> {
+      let base = self.base_url(locale)?;
+      base.join("api/v0/")
+    }
+
+    fn search_url(&self, locale: Option<&str>) -> Result<Url, ParseError> {
+      let base = self.base_url(locale)?;
+      base.join("cgi/search.pl")
     }
 }
 
@@ -234,28 +267,46 @@ mod tests {
     #[test]
     fn test_off_base_url_default() {
         let off = client().unwrap();
-        assert_eq!(off.base_url(None).unwrap().as_str(), "https://world.openfoodfacts.org/");
+        assert_eq!(off.base_url(None).unwrap().as_str(),
+                  "https://world.openfoodfacts.org/");
     }
 
     // Get base URL with given locale
     #[test]
     fn test_off_base_url_locale() {
         let off = client().unwrap();
-        assert_eq!(off.base_url(Some("gr")).unwrap().as_str(), "https://gr.openfoodfacts.org/");
+        assert_eq!(off.base_url(Some("gr")).unwrap().as_str(),
+                  "https://gr.openfoodfacts.org/");
+    }
+
+    // Get API URL
+    #[test]
+    fn test_off_api_url() {
+        let off = client().unwrap();
+        assert_eq!(off.api_url(None).unwrap().as_str(),
+                   "https://world.openfoodfacts.org/api/v0/");
+    }
+
+    // Get search URL
+    #[test]
+    fn test_off_search_url() {
+        let off = client().unwrap();
+        assert_eq!(off.search_url(Some("gr")).unwrap().as_str(),
+                  "https://gr.openfoodfacts.org/cgi/search.pl");
     }
 
     #[test]
-    fn test_taxonomy_const() {
+    fn test_off_taxonomy_const() {
       assert_eq!(taxonomy::ALLERGENS.0, "allergens");
     }
 
     #[test]
-    fn test_facet_const() {
+    fn test_off_facet_const() {
       assert_eq!(facet::LABELS.0, "labels");
     }
 
     #[test]
-    fn test_get_taxonomy() {
+    fn test_off_get_taxonomy() {
       let off = client().unwrap();
       let response = off.taxonomy(&taxonomy::NOVA_GROUPS).unwrap();
       assert_eq!(response.url().as_str(),
@@ -264,15 +315,7 @@ mod tests {
   }
 
   #[test]
-  fn test_get_facet_default() {
-    let off = client().unwrap();
-    let response = off.facet(&facet::BRANDS, None).unwrap();  // None : defaut locale (world)
-    assert_eq!(response.url().as_str(), "https://world.openfoodfacts.org/brands.json");
-    assert_eq!(response.status().is_success(), true);
-  }
-
-  #[test]
-  fn test_get_facet_locale() {
+  fn test_off_get_facet() {
     let off = client().unwrap();
     let response = off.facet(&facet::BRANDS, Some("gr")).unwrap();
     assert_eq!(response.url().as_str(), "https://gr.openfoodfacts.org/brands.json");
@@ -280,35 +323,33 @@ mod tests {
   }
 
   #[test]
-  fn test_get_categories_default() {
+  fn test_off_get_categories() {
     let off = client().unwrap();
-    let response = off.categories(None).unwrap();   // None : defaut locale (world)
-    assert_eq!(response.url().as_str(), "https://world.openfoodfacts.org/categories.json");
-    assert_eq!(response.status().is_success(), true);
-  }
-
-  #[test]
-  fn test_get_categories_locale() {
-    let off = client().unwrap();
-    let response = off.categories(Some("gr")).unwrap();
+    let response = off.categories(Some("gr")).unwrap();   // None : defaut locale (world)
     assert_eq!(response.url().as_str(), "https://gr.openfoodfacts.org/categories.json");
     assert_eq!(response.status().is_success(), true);
   }
 
   #[test]
-  fn test_get_category_default() {
+  fn test_off_get_category() {
     let off = client().unwrap();
-    let response = off.category("cheeses", None).unwrap();   // None : defaut locale (world)
+    let response = off.category("cheeses", None).unwrap();
     assert_eq!(response.url().as_str(), "https://world.openfoodfacts.org/category/cheeses.json");
     assert_eq!(response.status().is_success(), true);
   }
 
-  // Fails: Probably the category name is returned in the locale language ??
   #[test]
-  fn test_get_category_locale() {
+  fn test_off_get_product() {
     let off = client().unwrap();
-    let response = off.category("cheeses", Some("gr")).unwrap();
-    assert_eq!(response.url().as_str(), "https://gr.openfoodfacts.org/category/cheeses.json");
+    let response = off.product("069000019832", None).unwrap();  // Diet Pepsi
+    assert_eq!(response.url().as_str(), "https://world.openfoodfacts.org/api/v0/product/069000019832");
     assert_eq!(response.status().is_success(), true);
   }
+
+  // #[test]
+  // fn test_off_json() {
+  //   let off = client().unwrap();
+  //   let response = off.category("cheeses", Some("gr")).unwrap();
+  //   println!("text: {:?}", response.text());
+  // }
 }
