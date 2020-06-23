@@ -165,6 +165,8 @@ type SearchParams = [String];
 
 // All functions will return a Result object
 // page and locale should be optional.
+// JSON response data can be deserialized into untyped JSON values
+// with response.json::<HashMap::<String, serde_json::Value>>()
 impl Off {
     // Get a taxonomy.
     pub fn taxonomy(&self, taxonomy: &taxonomy::Taxonomy) -> OffResult {
@@ -346,10 +348,15 @@ mod tests {
     assert_eq!(response.status().is_success(), true);
   }
 
+  // Use/keep as example.
+  //
+  // use std::collections::HashMap;
+  // use serde_json::Value;
+  //
   // #[test]
   // fn test_off_json() {
   //   let off = client().unwrap();
   //   let response = off.category("cheeses", Some("gr")).unwrap();
-  //   println!("text: {:?}", response.text());
+  //   println!("JSON: {:?}", response.json::<HashMap::<String, Value>>().unwrap());
   // }
 }
