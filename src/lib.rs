@@ -1,6 +1,5 @@
 // TODO: Reqwest is curretly configured in blokcing mode. To support both blocking and
 // non-blocking modes one needs to use conditional complilation ?
-//
 use std::iter::IntoIterator;
 use std::env::consts::OS;
 use std::error::Error;
@@ -200,56 +199,92 @@ pub mod criteria {
   criteria!(STATES, "states");
 }
 
+// Search param types
 
-// TODO: Replace with Trait. All search param types will support Serde serialization into
-// query strings.
 #[derive(Debug)]
-pub struct SearchParam {
+pub struct CriteriaParam {
   name: String,
   op: String,
   value: String
 }
 
+#[derive(Debug)]
+pub struct IngredientParam {
+  name: String,
+  value: String
+}
+
+#[derive(Debug)]
+pub struct NutrimentParam {
+  name: String,
+  op: String,
+  value: String
+}
+
+#[derive(Debug)]
+pub struct NameParam {
+  name: String,
+}
+
+// Implementation using Enum
+
+pub enum SearchParam {
+  Criteria(CriteriaParam),
+  Ingredient(IngredientParam),
+  Nutriment(NutrimentParam),
+  Name(NameParam)
+}
+
+// TODO: Implemenrt using Traits. All search param types will support Serde serialization into
+// query strings.
+// In order to be stored into the Vector, we need a trait represeting the common type.
+
+// Types:
+//  - CriteriaParam (name, op, value)
+//  - IngredientParam (name, value)
+//  - NutrimentParam (name, op, value)
+//  - NameParam (name)
+// All types implement the serde_urlencoded::Serializer trait
+
+
 pub struct SearchParams(Vec<SearchParam>);
 
+// Builder for seartch params. Produces a collection of objects supporting serialization.
 impl SearchParams {
   pub fn new() -> Self {
     Self(Vec::new())
   }
 
   pub fn criteria(& mut self, criteria: &criteria::Criteria, op: &str, value: &str) -> &Self {
-    self.0.push(SearchParam {
+    self.0.push(SearchParam::Criteria(CriteriaParam {
       name: String::from(criteria.0),
       op: String::from(op),
       value: String::from(value)
-    });
+    }));
     self
   }
 
   pub fn ingredient(& mut self, ingredient: &str, value: &str) -> &Self {
-    self.0.push(SearchParam {
+    self.0.push(SearchParam::Ingredient(IngredientParam {
       name: String::from(ingredient),
-      op: String::from(""),
       value: String::from(value)
-    });
+    }));
     self
   }
 
   pub fn nutriment(& mut self, nutriment: &str, op: &str, value: usize) -> &Self {
-    self.0.push(SearchParam {
+    self.0.push(SearchParam::Nutriment(NutrimentParam {
       name: String::from(nutriment),
       op: String::from(op),
       value: value.to_string()
-    });
+    }));
     self
   }
 
   pub fn name(&mut self, name: &str) -> &Self {
-    self.0.push(SearchParam {
+    self.0.push(SearchParam::Name(NameParam {
       name: String::from(name),
-      op: String::from(""),
-      value: String::from("")
-    });
+    }));
     self
   }
 }
