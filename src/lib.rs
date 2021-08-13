@@ -22,7 +22,7 @@ struct Auth(String, String);
 /// 
 /// let off = Off:new().locale("fr").build()?;
 pub struct Off {
-    /// The default locale.
+    /// The default locale. Should be a country code or "world".
     locale: String,
     /// The authentication credentials. Optional. Only needed for write operations.
     auth: Option<Auth>,
@@ -34,8 +34,9 @@ impl Off {
     /// Create a new builder with defaults:
     /// 
     /// * The default locale is set to "world".
-    /// * No auth credentials.taxonomy
-    /// * The user agent is set to `OffRustClient - {OS name} - Version {version} - {github repo URL}`
+    /// * No authentication credentials
+    /// * The user agent is set to
+    ///   `OffRustClient - {OS name} - Version {version} - {github repo URL}`
     pub fn new() -> Self {
         Self {
             locale: "world".to_string(),
@@ -97,54 +98,6 @@ impl Off {
 
 // Off client -----------------------------------------------------------------
 
-
-// TODO: Is there a way to get the str out of taxonomy::Taxonomy without
-// having to use .0 ?
-// TODO: Support language in subdomain:
-//  locale can be <country> (world, gr, fr) or <country>-<language> (gr-en)
-
-// Taxonomy names
-pub mod taxonomy {
-    pub struct Taxonomy(pub &'static str);
-
-    macro_rules! taxonomy {
-        ($c:ident, $n:expr) => {pub const $c: Taxonomy = Taxonomy($n);}
-    }
-
-    taxonomy!(ADDITIVES, "additives");
-    taxonomy!(ADDITIVE_CLASSES, "additives_classes");
-    taxonomy!(ALLERGENS, "allergens");
-    taxonomy!(BRANDS, "brands");
-    taxonomy!(COUNTRIES, "countries");
-    taxonomy!(INGREDIENTS, "ingredients");
-    taxonomy!(INGREDIENT_ANALYSIS, "ingredients-analysis");  // Note the '-'
-    taxonomy!(LANGUAGES, "languages");
-    taxonomy!(NOVA_GROUPS, "nova_groups");
-    // TODO: Use nutrient or nutriment names consistently.
-    taxonomy!(NUTRIMENTS, "nutrients");
-    taxonomy!(NUTRIENT_LEVELS, "nutrient_levels");
-    taxonomy!(PRODUCT_STATES, "states");
-}
-
-
-// Facet names
-pub mod facet {
-    pub struct Facet(pub &'static str);
-
-    macro_rules! facet {
-        ($c:ident, $n:expr) => {pub const $c: Facet = Facet($n);}
-    }
-
-    facet!(ADDITIVES, "additives");
-    facet!(ALLERGENS, "allergens");
-    facet!(BRANDS, "brands");
-    facet!(COUNTRIES, "countries");
-    facet!(INGREDIENTS, "ingredients");
-    facet!(INGREDIENT_ANALYSIS, "ingredients-analysis");  // Note the '-'
-    facet!(LANGUAGES, "languages");
-    facet!(PRODUCT_STATES, "states");
-    facet!(LABELS, "labels");
-}
 
 // Search criteria names
 pub mod criteria {
@@ -342,58 +295,151 @@ type OffResult = Result<Response, Box<dyn Error>>;
 impl OffClient {
     /// Get the given taxonomy.
     /// 
-    /// Taxomonies support only the locale "world".
+    /// # OFF API request
+    ///
+    /// `GET https://world.openfoodfacts.org/data/taxonomies/{taxonomy}.json`
+    ///
+    /// Taxomonies support only the locale "world". The default client locale
+    /// is ignored.
     /// 
     /// # Arguments
     /// 
-    /// * `taxonomy` - One of the `taxonomy` constants.
-    pub fn taxonomy(&self, taxonomy: &taxonomy::Taxonomy) -> OffResult {
+    /// * `taxonomy` - A string with the taxonomy name.
+    pub fn taxonomy(&self, taxonomy: &str) -> OffResult {
         let base_url = self.base_url(Some("world"))?;
-        let url = base_url.join(&format!("data/taxonomies/{}.json", taxonomy.0))?;
+        let url = base_url.join(&format!("data/taxonomies/{}.json", taxonomy))?;
         let response = self.client.get(url).send()?;
         Ok(response)
     }
 
     /// Get the given facet.
-    /// 
-    /// # Arguments
-    /// 
-    /// * `facet` - One of the `facet` constants.
-    /// * `locale`- Optional locale. If missing, uses the default locale.
-    pub fn facet(&self, facet: &facet::Facet, locale: Option<&str>) -> OffResult {
+    ///
+    /// # OFF API request
+    ///
+    /// `GET https://{locale}.openfoodfacts.org/{facet}.json`
+    ///
+    /// * `facet` - A string with the taxonomy name.
+    /// * `locale`- Optional locale. Should contain only a country code.
+    ///             If missing, uses the default client locale.
+    pub fn facet(&self, facet: &str, locale: Option<&str>) -> OffResult {
         let base_url = self.base_url(locale)?;
-        let url = base_url.join(&format!("{}.json", facet.0))?;
+        let url = base_url.join(&format!("{}.json", facet))?;
         let response = self.client.get(url).send()?;
         Ok(response)
     }
 
     /// Get all the categories.
-    /// 
-    /// # Arguments
-    /// 
-    /// * `locale`- Optional locale. If missing, uses the default locale.
-    pub fn categories(&self, locale: Option<&str>) -> OffResult {
-        let base_url = self.base_url(locale)?;
+    ///
+    /// # OFF API request
+    ///
+    /// ```ignore
+    /// GET https://world.openfoodfacts.org/categories.json
+    /// ```
+    ///
+    /// Categories support only the locale "world". The default client locale
+    /// is ignored.
+    pub fn categories(&self) -> OffResult {
+        let base_url = self.base_url(Some("world"))?;
         let url = base_url.join("categories.json")?;
         let response = self.client.get(url).send()?;
         Ok(response)
     }
 
-    // Get category
-    pub fn category(&self, category: &str, locale: Option<&str>) -> OffResult {
+    // TODO:
+    //
+    //  - products_by_category
+    //  - products_with_additive
+    //  - products_in_state
+    //
+    // If a pair <cc>-<lc> is given, the name of the /category/ segment
+    // will be localized. VERFIY THIS. If one gives a language code, it
+    // should be possible to pass the localized segment name in an optional
+    // parameter?
+
+    /// Get all products belonging to the given category.
+    ///
+    /// # OFF API request
+    ///
+    /// ```ignore
+    /// GET https://{locale}.openfoodfacts.org/category/{category}.json
+    /// ```
+    ///
+    /// # Arguments
+    ///
+    /// * `category`- The category name.
+    /// * `locale`- Optional locale. May contain a country code or a pair
+    ///             <country code>-<language code>. If missing, uses the default
+    ///             client locale.
+    pub fn products_by_category(&self, category: &str, locale: Option<&str>) -> OffResult {
         let base_url = self.base_url(locale)?;
         let url = base_url.join(&format!("category/{}.json", category))?;
         let response = self.client.get(url).send()?;
         Ok(response)
     }
 
-    // Get product by barcode.
-    pub fn product(&self, barcode: &str, locale: Option<&str>) -> OffResult {
+    /// Get all products containing the given additive.
+    ///
+    /// # OFF API request
+    ///
+    /// ```ignore
+    /// GET https://{locale}.openfoodfacts.org/additive/{additive}.json
+    /// ```
+    ///
+    /// # Arguments
+    ///
+    /// * `additive`- The additive name.
+    /// * `locale`- Optional locale. May contain a country code or a pair
+    ///             <country code>-<language code>. If missing, uses the default
+    ///             client locale.
+    pub fn products_with_additive(&self, additive: &str, locale: Option<&str>) -> OffResult {
+        let base_url = self.base_url(locale)?;
+        let url = base_url.join(&format!("additive/{}.json", additive))?;
+        let response = self.client.get(url).send()?;
+        Ok(response)
+    }
+
+    /// Get all products in the given state.
+    ///
+    /// # OFF API request
+    ///
+    /// ```ignore
+    /// GET https://{locale}.openfoodfacts.org/state/{state}.json
+    /// ```
+    ///
+    /// # Arguments
+    ///
+    /// * `state`- The state name.
+    /// * `locale`- Optional locale. May contain a country code or a pair
+    ///             <country code>-<language code>. If missing, uses the default
+    ///             client locale.
+    pub fn products_in_state(&self, state: &str, locale: Option<&str>) -> OffResult {
+        let base_url = self.base_url(locale)?;
+        let url = base_url.join(&format!("state/{}.json", state))?;
+        let response = self.client.get(url).send()?;
+        Ok(response)
+    }
+
+    /// Get a product by barcode.
+    ///
+    /// # OFF API request
+    ///
+    /// ```ignore
+    /// GET https://{locale}.openfoodfacts.org/api/v0/product/{barcode}
+    /// ```
+    ///
+    /// # Arguments
+    ///
+    /// * `barcode` - A string with the product barcode.
+    /// * `locale`- Optional locale. Should contain only a country code TODO: VERIFY THIS.
+    ///             If missing, uses the default client locale.
+    pub fn product_by_barcode(&self, barcode: &str, locale: Option<&str>) -> OffResult {
         let api_url = self.api_url(locale)?;
         let url = api_url.join(&format!("product/{}", barcode))?;
         let response = self.client.get(url).send()?;
         Ok(response)
     }
+
+    // Search queries ---------------------------------------------------------
 
     // Search products.
     // TODO: Serialization
@@ -436,6 +482,7 @@ impl OffClient {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use reqwest::StatusCode;
 
     // **
     // Builder
@@ -467,7 +514,7 @@ mod tests {
 
     // Get base URL with default locale
     #[test]
-    fn test_off_base_url_default() {
+    fn test_client_base_url_default() {
         let off = Off::new().build().unwrap();
         assert_eq!(off.base_url(None).unwrap().as_str(),
                    "https://world.openfoodfacts.org/");
@@ -475,7 +522,7 @@ mod tests {
 
     // Get base URL with given locale
     #[test]
-    fn test_off_base_url_locale() {
+    fn test_client_base_url_locale() {
         let off = Off::new().build().unwrap();
         assert_eq!(off.base_url(Some("gr")).unwrap().as_str(),
                    "https://gr.openfoodfacts.org/");
@@ -483,7 +530,7 @@ mod tests {
 
     // Get API URL
     #[test]
-    fn test_off_api_url() {
+    fn test_client_api_url() {
         let off = Off::new().build().unwrap();
         assert_eq!(off.api_url(None).unwrap().as_str(),
                    "https://world.openfoodfacts.org/api/v0/");
@@ -491,65 +538,80 @@ mod tests {
 
     // Get search URL
     #[test]
-    fn test_off_search_url() {
+    fn test_client_search_url() {
         let off = Off::new().build().unwrap();
         assert_eq!(off.search_url(Some("gr")).unwrap().as_str(),
                    "https://gr.openfoodfacts.org/cgi/search.pl");
     }
 
     #[test]
-    fn test_off_taxonomy_const() {
-        assert_eq!(taxonomy::ALLERGENS.0, "allergens");
-    }
-
-    #[test]
-    fn test_off_facet_const() {
-        assert_eq!(facet::LABELS.0, "labels");
-    }
-
-    #[test]
-    fn test_off_get_taxonomy() {
+    fn test_client_taxonomy() {
         let off = Off::new().build().unwrap();
-        let response = off.taxonomy(&taxonomy::NOVA_GROUPS).unwrap();
+        let response = off.taxonomy("nova_groups").unwrap();
         assert_eq!(response.url().as_str(),
                    "https://world.openfoodfacts.org/data/taxonomies/nova_groups.json");
         assert_eq!(response.status().is_success(), true);
     }
 
     #[test]
-    fn test_off_get_facet() {
+    fn test_client_taxonomy_not_found() {
         let off = Off::new().build().unwrap();
-        let response = off.facet(&facet::BRANDS, Some("gr")).unwrap();
+        let response = off.taxonomy("not_found").unwrap();
+        assert_eq!(response.url().as_str(),
+                   "https://world.openfoodfacts.org/data/taxonomies/not_found.json");
+        assert_eq!(response.status(), StatusCode::NOT_FOUND);
+    }
+
+    #[test]
+    fn test_client_facet() {
+        let off = Off::new().build().unwrap();
+        let response = off.facet("brands", Some("gr")).unwrap();
         assert_eq!(response.url().as_str(), "https://gr.openfoodfacts.org/brands.json");
         assert_eq!(response.status().is_success(), true);
     }
 
     #[test]
-    fn test_off_get_categories() {
+    fn test_client_categories() {
         let off = Off::new().build().unwrap();
-        let response = off.categories(Some("gr")).unwrap();   // None : defaut locale (world)
-        assert_eq!(response.url().as_str(), "https://gr.openfoodfacts.org/categories.json");
+        let response = off.categories().unwrap();
+        assert_eq!(response.url().as_str(), "https://world.openfoodfacts.org/categories.json");
         assert_eq!(response.status().is_success(), true);
     }
 
     #[test]
-    fn test_off_get_category() {
+    fn test_client_products_by_category() {
         let off = Off::new().build().unwrap();
-        let response = off.category("cheeses", None).unwrap();
+        let response = off.products_by_category("cheeses", None).unwrap();
         assert_eq!(response.url().as_str(), "https://world.openfoodfacts.org/category/cheeses.json");
         assert_eq!(response.status().is_success(), true);
     }
 
     #[test]
-    fn test_off_get_product() {
+    fn test_client_products_with_additive() {
         let off = Off::new().build().unwrap();
-        let response = off.product("069000019832", None).unwrap();  // Diet Pepsi
+        let response = off.products_with_additive("e322-lecithins", None).unwrap();
+        assert_eq!(response.url().as_str(), "https://world.openfoodfacts.org/additive/e322-lecithins.json");
+        assert_eq!(response.status().is_success(), true);
+    }
+
+    #[test]
+    fn test_client_products_in_state() {
+        let off = Off::new().build().unwrap();
+        let response = off.products_in_state("empty", None).unwrap();
+        assert_eq!(response.url().as_str(), "https://world.openfoodfacts.org/state/empty.json");
+        assert_eq!(response.status().is_success(), true);
+    }
+
+    #[test]
+    fn test_client_product_by_barcode() {
+        let off = Off::new().build().unwrap();
+        let response = off.product_by_barcode("069000019832", None).unwrap();  // Diet Pepsi
         assert_eq!(response.url().as_str(), "https://world.openfoodfacts.org/api/v0/product/069000019832");
         assert_eq!(response.status().is_success(), true);
     }
 
     #[test]
-    fn test_off_search_params() {
+    fn test_client_search_params() {
         let mut search_params = SearchParams::new();
         search_params.criteria(&criteria::BRANDS, "contains", "Nestlé")
                      .criteria(&criteria::CATEGORIES, "does_not_contain", "cheese")
