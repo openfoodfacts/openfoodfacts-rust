@@ -20,7 +20,9 @@ struct Auth(String, String);
 /// 
 /// # Examples
 /// 
+/// ```ignore
 /// let off = Off:new().locale("fr").build()?;
+/// ```
 pub struct Off {
     /// The default locale. Should be a country code or "world".
     locale: String,
@@ -99,125 +101,106 @@ impl Off {
 // Off client -----------------------------------------------------------------
 
 
-// Search criteria names
-pub mod criteria {
-    pub struct Criteria(pub &'static str);
-
-    macro_rules! criteria {
-        ($c:ident, $n:expr) => {pub const $c: Criteria = Criteria($n);}
-    }
-
-    criteria!(BRANDS, "brands");
-    criteria!(CATEGORIES, "categories");
-    criteria!(PACKAGING, "packaging");
-    criteria!(LABELS, "labels");
-    criteria!(ORIGINS, "origins");
-    criteria!(MANUFACTURING_PLACES, "manufacturing_places");
-    criteria!(EMB_CODES, "emb_codes");
-    criteria!(PURCHASE_PLACES, "purchase_places");
-    criteria!(STORES, "stores");
-    criteria!(COUNTRIES, "countries");
-    criteria!(ADDITIVES, "additives");
-    criteria!(ALLERGENS, "allergens");
-    criteria!(TRACES, "traces");
-    criteria!(NUTRITION_GRADES, "nutrition_grades");
-    criteria!(STATES, "states");
-}
-
-// Search parameter types
-
-// Search criteria parameters. Each parameter serializes to the triplet
-//  tagtype_N=<name>
-//  tag_contains_N=<op>
-//  tag_N=<value>
-//
-// The index N is given by the SearchParams serializer and indicates the
-// number of this CriteriaParam in the SearchParams vector.
-//
-// name: Must be one of the criteria::NAME values.
-// op: One of "contains" or "does_not_contain".
-// value: a string with the searched criteria value.
+/// Defines a criteria search parameter.
+///
+/// Serializes to a triplet of pairs
+///
+/// tagtype_N=<name>
+/// tag_contains_N=<op>
+/// tag_N=<value>
+///
+/// The index N is calculated by the SearchParams serializer and indicates the number
+/// of this CriteriaParam in the SearchParams vector.
 #[derive(Debug)]
 pub struct CriteriaParam {
+    /// A valid criteria name.
     name: String,
+    // One of "contains" or "does_not_contain".
     op: String,
+    // The searched criteria value.
     value: String
 }
 
-// Ingredient parameters. Each parameter serializes to a pair
-//  <name>=<value>
-//
-// <name>: Any of the following: "additives", "ingredients_from_palm_oil",
-// "ingredients_that_may_be_from_palm_oil", "ingredients_from_or_that_may_be_from_palm_oil"
-// <value>: Any of the following: "with", "without", "indifferent".
-//
-// If <name> is "additives", the values are converted respectively to "with_additives",
-// "without_additives" and "indifferent_additives".
+
+/// Defines an ingredient search parameter. 
+///
+/// Serializes to a pair
+/// 
+/// <name>=<value>
+///
 #[derive(Debug)]
 pub struct IngredientParam {
+    /// One of "additives", "ingredients_from_palm_oil",
+    /// "ingredients_that_may_be_from_palm_oil", "ingredients_from_or_that_may_be_from_palm_oil"
     name: String,
+    // One of "with", "without", "indifferent".
+    /// If <name> is "additives", the values "with", "without" and "indiferent" are converted to
+    /// "with_additives", "without_additives" and "indifferent_additives" respectively.
     value: String
 }
 
-// Nutriment parameters. Each parameter serializes to the triplet
-//  nutriment_N=<name>
-//  nutriment_compare_N=<op>
-//  nutriment_value_N=<value>
-//
-// The index N is given by the SearchParams serializer and indicates the
-// number of this NutrimentParam in the SearchParams vector.
-//
-// name: Must be one of the nutriment values returned by the taxonomxy::NUTRIMENTS
-//  taxonomy.
-// op: One of "lt", "lte", "gt", "gte" or "eq".
-// value: a string with the searched nutriment value.
+/// Defines a nutriment search parameters.
+///
+/// Serializes to a triplet of pairs
+///
+/// nutriment_N=<name>
+/// nutriment_compare_N=<op>
+/// nutriment_value_N=<value>  TODO: Should be an integers ?
+///
+/// TODO: Unit of nutriment_value_N (gr, mg)?
+/// The index N is calculated by the SearchParams serializer and indicates the number
+/// of this NutrimentParam in the SearchParams vector.
+
 #[derive(Debug)]
 pub struct NutrimentParam {
+    /// A valid nutriment values (as returned by the "nutriments" taxonomy).
+    /// taxonomy.
     name: String,
+    /// One of "lt", "lte", "gt", "gte" or "eq".
     op: String,
+    // The searched nutriment value.
     value: String
 }
 
+// Other search parameters.
 
-// Product name search parameter. Serializes to
-// product_name=<name>
-//
-// <name>: Any valid product name.
-#[derive(Debug)]
-pub struct NameParam {
-    name: String,
-}
+// TODO:
+// format: Default is JSON -> method call parameter
+// page and page_size -> method call parameter
+// sort_by: String or Enum (Popularity, Product name, Add date, Edit date) 
+//  -> method call parameter 
 
-// Implementation using Enum
-
+/// The search parameter of any of the valid types.
 pub enum SearchParam {
     Criteria(CriteriaParam),
     Ingredient(IngredientParam),
-    Nutriment(NutrimentParam),
-    Name(NameParam)
+    Nutriment(NutrimentParam)
 }
 
-// TODO:
-// format: Default is JSON
-// page and page_size
-// sort_by: String or Enum (Popularity, Product name, Add date, Edit date, Completness)
-// created_t
-// last_modified_t
-// tags : A collection of tuples (name, op, value) ? -> tag_0 ... tag_N
-// unique_scans_N : ??
 
-
+/// The collection of SearchParam objects involded in a particular search.
+///
+/// Serializes to a HTTP query string.
+///
+/// # Examples
+///
+/// ```ignore
+/// let search_params = SearchParams::new()
+///     .criteria("categories", "contains", "cereals")
+///     .criteria("label", "contains", "kosher")
+///     .ingredient("additives", "without"),
+///     .nutriment("energy", "lt", 500);
+/// 
 pub struct SearchParams(Vec<SearchParam>);
 
-// Builder for search params. Produces a collection of objects supporting serialization.
 impl SearchParams {
     pub fn new() -> Self {
         Self(Vec::new())
     }
 
-    pub fn criteria(& mut self, criteria: &criteria::Criteria, op: &str, value: &str) -> & mut Self {
+    pub fn criteria(& mut self, criteria: &str, op: &str, value: &str) -> & mut Self {
         self.0.push(SearchParam::Criteria(CriteriaParam {
-            name: String::from(criteria.0),
+            name: String::from(criteria),
             op: String::from(op),
             value: String::from(value)
         }));
@@ -237,13 +220,6 @@ impl SearchParams {
             name: String::from(nutriment),
             op: String::from(op),
             value: value.to_string()
-        }));
-        self
-    }
-
-    pub fn name(&mut self, name: &str) -> & mut Self {
-        self.0.push(SearchParam::Name(NameParam {
-            name: String::from(name),
         }));
         self
     }
@@ -613,13 +589,12 @@ mod tests {
     #[test]
     fn test_client_search_params() {
         let mut search_params = SearchParams::new();
-        search_params.criteria(&criteria::BRANDS, "contains", "Nestlé")
-                     .criteria(&criteria::CATEGORIES, "does_not_contain", "cheese")
+        search_params.criteria("brands", "contains", "Nestlé")
+                     .criteria("categories", "does_not_contain", "cheese")
                      .ingredient("additives", "without")
                      .ingredient("ingredients_that_may_be_from_palm_oil", "indifferent")
                      .nutriment("fiber", "lt", 500)
-                     .nutriment("salt", "gt", 100)
-                     .name("name");
+                     .nutriment("salt", "gt", 100);
         // Other: sort by, , product_name, created, last_modified,
         // builder.sort_by();
         // builder.created(date);
@@ -634,7 +609,7 @@ mod tests {
         let mut spi = search_params.into_iter();
     
         if let SearchParam::Criteria(brands) = spi.next().unwrap() {
-            assert_eq!(brands.name, criteria::BRANDS.0);
+            assert_eq!(brands.name, "brands");
             assert_eq!(brands.op, "contains");
             assert_eq!(brands.value, "Nestlé");
         }
@@ -661,15 +636,6 @@ mod tests {
         }
         else {
             panic!("Not an Nutriment")
-        }
-
-        spi.next();   // salt
-
-        if let SearchParam::Name(product_name) = spi.next().unwrap() {
-            assert_eq!(product_name.name, "name");
-        }
-        else {
-            panic!("Not an Name")
         }
     }
 
