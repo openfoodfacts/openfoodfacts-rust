@@ -1,6 +1,5 @@
 // TODO: Reqwest is curretly configured in blocking mode. To support both blocking and
 // non-blocking modes one needs to use conditional complilation ?
-use std::iter::IntoIterator;
 use std::env::consts::OS;
 use std::error::Error;
 use reqwest::blocking::{Client, Response};
@@ -8,6 +7,7 @@ use reqwest::header;
 use url::{Url, ParseError};
 // use serde::ser::{Serialize, Serializer};
 
+mod search;
 
 // Builder --------------------------------------------------------------------
 
@@ -100,153 +100,6 @@ impl Off {
 
 // Off client -----------------------------------------------------------------
 
-
-/// Defines a criteria search parameter.
-///
-/// Serializes to a triplet of pairs
-///
-/// tagtype_N=<name>
-/// tag_contains_N=<op>
-/// tag_N=<value>
-///
-/// The index N is calculated by the SearchParams serializer and indicates the number
-/// of this CriteriaParam in the SearchParams vector.
-#[derive(Debug)]
-pub struct CriteriaParam {
-    /// A valid criteria name.
-    name: String,
-    // One of "contains" or "does_not_contain".
-    op: String,
-    // The searched criteria value.
-    value: String
-}
-
-
-/// Defines an ingredient search parameter. 
-///
-/// Serializes to a pair
-/// 
-/// <name>=<value>
-///
-#[derive(Debug)]
-pub struct IngredientParam {
-    /// One of "additives", "ingredients_from_palm_oil",
-    /// "ingredients_that_may_be_from_palm_oil", "ingredients_from_or_that_may_be_from_palm_oil"
-    name: String,
-    // One of "with", "without", "indifferent".
-    /// If <name> is "additives", the values "with", "without" and "indiferent" are converted to
-    /// "with_additives", "without_additives" and "indifferent_additives" respectively.
-    value: String
-}
-
-/// Defines a nutriment search parameters.
-///
-/// Serializes to a triplet of pairs
-///
-/// nutriment_N=<name>
-/// nutriment_compare_N=<op>
-/// nutriment_value_N=<value>  TODO: Should be an integers ?
-///
-/// TODO: Unit of nutriment_value_N (gr, mg)?
-/// The index N is calculated by the SearchParams serializer and indicates the number
-/// of this NutrimentParam in the SearchParams vector.
-
-#[derive(Debug)]
-pub struct NutrimentParam {
-    /// A valid nutriment values (as returned by the "nutriments" taxonomy).
-    /// taxonomy.
-    name: String,
-    /// One of "lt", "lte", "gt", "gte" or "eq".
-    op: String,
-    // The searched nutriment value.
-    value: String
-}
-
-// Other search parameters.
-
-// TODO:
-// format: Default is JSON -> method call parameter
-// page and page_size -> method call parameter
-// sort_by: String or Enum (Popularity, Product name, Add date, Edit date) 
-//  -> method call parameter 
-
-/// The search parameter of any of the valid types.
-pub enum SearchParam {
-    Criteria(CriteriaParam),
-    Ingredient(IngredientParam),
-    Nutriment(NutrimentParam)
-}
-
-
-/// The collection of SearchParam objects involded in a particular search.
-///
-/// Serializes to a HTTP query string.
-///
-/// # Examples
-///
-/// ```ignore
-/// let search_params = SearchParams::new()
-///     .criteria("categories", "contains", "cereals")
-///     .criteria("label", "contains", "kosher")
-///     .ingredient("additives", "without"),
-///     .nutriment("energy", "lt", 500);
-/// 
-pub struct SearchParams(Vec<SearchParam>);
-
-impl SearchParams {
-    pub fn new() -> Self {
-        Self(Vec::new())
-    }
-
-    pub fn criteria(& mut self, criteria: &str, op: &str, value: &str) -> & mut Self {
-        self.0.push(SearchParam::Criteria(CriteriaParam {
-            name: String::from(criteria),
-            op: String::from(op),
-            value: String::from(value)
-        }));
-        self
-    }
-
-    pub fn ingredient(& mut self, ingredient: &str, value: &str) -> & mut Self {
-        self.0.push(SearchParam::Ingredient(IngredientParam {
-            name: String::from(ingredient),
-            value: String::from(value)
-        }));
-        self
-    }
-
-    pub fn nutriment(& mut self, nutriment: &str, op: &str, value: usize) -> & mut Self {
-        self.0.push(SearchParam::Nutriment(NutrimentParam {
-            name: String::from(nutriment),
-            op: String::from(op),
-            value: value.to_string()
-        }));
-        self
-    }
-}
-
-impl IntoIterator for SearchParams {
-    type Item = SearchParam;
-    type IntoIter = std::vec::IntoIter<Self::Item>;
-
-    fn into_iter(self) -> Self::IntoIter {
-        self.0.into_iter()
-    }
-}
-
-
-// TODO: Use UrlEncodedSerializer ?
-// impl Serialize for SearchParams {
-//   fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-//   where
-//       S: Serializer,
-//   {
-//       // The simplest implementation is to convert each SeachParam in an array of
-//       // pairs name=value
-//       // and call serde_urlencoded::to_string() on it.
-//       Ok("name=value")
-//   }
-// }
 
 /// The OFF API client, created using the Off() builder.
 /// 
@@ -584,59 +437,6 @@ mod tests {
         let response = off.product_by_barcode("069000019832", None).unwrap();  // Diet Pepsi
         assert_eq!(response.url().as_str(), "https://world.openfoodfacts.org/api/v0/product/069000019832");
         assert_eq!(response.status().is_success(), true);
-    }
-
-    #[test]
-    fn test_client_search_params() {
-        let mut search_params = SearchParams::new();
-        search_params.criteria("brands", "contains", "Nestlé")
-                     .criteria("categories", "does_not_contain", "cheese")
-                     .ingredient("additives", "without")
-                     .ingredient("ingredients_that_may_be_from_palm_oil", "indifferent")
-                     .nutriment("fiber", "lt", 500)
-                     .nutriment("salt", "gt", 100);
-        // Other: sort by, , product_name, created, last_modified,
-        // builder.sort_by();
-        // builder.created(date);
-        // builder.last_modified(date);
-        // builder.pagination(page, page_size);
-        // // TODO: Use content types ?
-        // builder.format(Json);
-        // builder.format(Xml);
-        // TODO: unique_scans_<n> ?
-        // page, page_size, format(json, Xml).
-
-        let mut spi = search_params.into_iter();
-    
-        if let SearchParam::Criteria(brands) = spi.next().unwrap() {
-            assert_eq!(brands.name, "brands");
-            assert_eq!(brands.op, "contains");
-            assert_eq!(brands.value, "Nestlé");
-        }
-        else {
-            panic!("Not a CriteriaParam")
-        }
-
-        spi.next();   // CATEGORIES
-
-        if let SearchParam::Ingredient(ingredient) = spi.next().unwrap() {
-            assert_eq!(ingredient.name, "additives");
-            assert_eq!(ingredient.value, "without");
-        }
-        else {
-            panic!("Not an Ingredient")
-        }
-
-        spi.next();   // ingredients_that_may_be_from_palm_oil
-
-        if let SearchParam::Nutriment(nutriment) = spi.next().unwrap() {
-            assert_eq!(nutriment.name, "fiber");
-            assert_eq!(nutriment.op, "lt");
-            assert_eq!(nutriment.value, "500");
-        }
-        else {
-            panic!("Not an Nutriment")
-        }
     }
 
     // Use/keep as example.
