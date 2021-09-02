@@ -47,7 +47,7 @@ mod search {
     ///
     /// nutriment_N=<name>
     /// nutriment_compare_N=<op>
-    /// nutriment_value_N=<value>  TODO: Should be an integers ?
+    /// nutriment_value_N=<quantity>
     ///
     /// TODO: Unit of nutriment_value_N (gr, mg)?
     /// The index N is calculated by the SearchParams serializer and indicates the number
@@ -56,12 +56,11 @@ mod search {
     #[derive(Debug)]
     pub struct NutrimentParam {
         /// A valid nutriment values (as returned by the "nutriments" taxonomy).
-        /// taxonomy.
         pub name: String,
         /// One of "lt", "lte", "gt", "gte" or "eq".
         pub op: String,
-        // The searched nutriment value.
-        pub value: String
+        // The nutriment quantity.
+        pub value: u32
     }
 
     // Other search parameters.
@@ -72,7 +71,7 @@ mod search {
     // sort_by: String or Enum (Popularity, Product name, Add date, Edit date) 
     //  -> method call parameter 
 
-    /// The search parameter of any of the valid types.
+    /// A search parameter of any of the valid types.
     pub enum SearchParam {
         Criteria(CriteriaParam),
         Ingredient(IngredientParam),
@@ -80,9 +79,9 @@ mod search {
     }
 
 
-    /// The collection of SearchParam objects involded in a particular search.
+    /// The collection of SearchParam objects involved in a particular search.
     ///
-    /// Serializes to a HTTP query string.
+    /// Serializes to an HTTP query string.
     ///
     /// # Examples
     ///
@@ -92,7 +91,7 @@ mod search {
     ///     .criteria("label", "contains", "kosher")
     ///     .ingredient("additives", "without"),
     ///     .nutriment("energy", "lt", 500);
-    /// 
+    /// ```
     pub struct SearchParams(Vec<SearchParam>);
 
     impl SearchParams {
@@ -110,7 +109,6 @@ mod search {
         }
     
         pub fn ingredient(& mut self, ingredient: &str, value: &str) -> & mut Self {
-            // Convert "with", "without", "indifferent" into "with_additives", etc.
             self.0.push(SearchParam::Ingredient(IngredientParam {
                 name: String::from(ingredient),
                 value: match ingredient {
@@ -121,11 +119,11 @@ mod search {
             self
         }
 
-        pub fn nutriment(& mut self, nutriment: &str, op: &str, value: usize) -> & mut Self {
+        pub fn nutriment(& mut self, nutriment: &str, op: &str, value: u32) -> & mut Self {
             self.0.push(SearchParam::Nutriment(NutrimentParam {
                 name: String::from(nutriment),
                 op: String::from(op),
-                value: value.to_string()
+                value: value
             }));
             self
         }
@@ -211,7 +209,7 @@ mod tests {
         if let SearchParam::Nutriment(nutriment) = spi.next().unwrap() {
             assert_eq!(nutriment.name, "fiber");
             assert_eq!(nutriment.op, "lt");
-            assert_eq!(nutriment.value, "500");
+            assert_eq!(nutriment.value, 500);
         }
         else {
             panic!("Not an Nutriment")
