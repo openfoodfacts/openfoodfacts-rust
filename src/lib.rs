@@ -1,5 +1,3 @@
-// TODO: Reqwest is curretly configured in blocking mode. To support both blocking and
-// non-blocking modes one needs to use conditional complilation ?
 use std::env::consts::OS;
 use std::error::Error;
 use reqwest::blocking::{Client, Response};
@@ -10,44 +8,58 @@ mod search;
 
 use crate::search::Query;
 
+const VERSION: &str = "alpha";
+
+
 // Builder --------------------------------------------------------------------
 
 // (username, password)
-// TODO: Need derive ?
 #[derive(Debug, PartialEq)]
 struct Auth(String, String);
 
 /// The Open Food Facts API client builder.
-/// 
+///
 /// # Examples
-/// 
+///
 /// ```ignore
-/// let off = Off:new().locale("fr").build()?;
+/// let off = Off:new("v0").locale("fr").build()?;
 /// ```
 pub struct Off {
-    /// The default locale. Should be a country code or "world".
+    /// The API version to use. One of "v0" or "v2".
+    version: String,
+    /// The default locale. A country code, a "{country code}-{language code}"
+    /// pair or "world".
+    ///
+    /// * Country codes must be lowercase ISO 3166-1 codes.
+    /// * Language codes must be lowercase ISO 639-1 codes.
     locale: String,
     /// The authentication credentials. Optional. Only needed for write operations.
     auth: Option<Auth>,
     /// The User-Agent header value to send on each Off request. Optional.
+    /// If not given, use the default user agent.
     user_agent: Option<String>
 }
 
 impl Off {
     /// Create a new builder with defaults:
-    /// 
+    ///
     /// * The default locale is set to "world".
     /// * No authentication credentials
     /// * The user agent is set to
-    ///   `OffRustClient - {OS name} - Version {version} - {github repo URL}`
-    pub fn new() -> Self {
+    ///   `OffRustClient - {OS name} - Version {lib version} - {github repo URL}`
+    ///
+    /// # Arguments
+    ///
+    /// * version - The API version to use. One of "v0", "v2".
+    pub fn new(version: &str) -> Self {
         Self {
+            version: version.to_string(),
             locale: "world".to_string(),
             auth: None,
             // TODO: Get version and URL from somewhere else ?
             user_agent: Some(format!(
                 "OffRustClient - {} - Version {} - {}",
-                OS, "alpha", "https://github.com/openfoodfacts/openfoodfacts-rust"
+                OS, VERSION, "https://github.com/openfoodfacts/openfoodfacts-rust"
             ))
         }
     }
@@ -64,11 +76,9 @@ impl Off {
         self
     }
 
-    // TODO: Give full usr agent string or allow parameters:
-    // appname, platform, version, url
-    /// Set the user agent.
-    pub fn user_agent(mut self, value: &str) -> Self {
-        self.user_agent = Some(value.to_string());
+    /// Set the user agent string.
+    pub fn user_agent(mut self, user_agent: &str) -> Self {
+        self.user_agent = Some(user_agent.to_string());
         self
     }
 
@@ -92,6 +102,7 @@ impl Off {
             cb = cb.default_headers(headers);
         }
         Ok(OffClient {
+            version: self.version,
             locale: self.locale,
             client: cb.build()?
         })
@@ -122,7 +133,7 @@ pub enum Sorting {
 // outout = Output{format: , sort_by} ?
 // output.format(Format)
 // output.sort_by(Sorting),
-    
+
 // format: Default is JSON -> method call parameter
 // pub fn format(& mut self, format: Format) -> & mut Self {
 //     self.params.insert(String::from(match format {
@@ -156,18 +167,17 @@ pub enum Sorting {
 // TODO: nocache
 
 /// The OFF API client, created using the Off() builder.
-/// 
-/// All methods return a OffResult object.alloc
-/// 
+///
+/// All methods return a OffResult object.
+///
 /// The OffClient owns a reqwest::Client object. One single OffClient should
 /// be used per application.
 pub struct OffClient {
+    /// The API version.
+    version: String,
     /// The default locale to use when no locale is given in a method call.
-    /// Always the lowercase alpha-2 ISO3166 code.
     locale: String,
-    /// The uderlying reqwest client.
-    // TODO: not sure if it is possible to use blocking and non-blocking clients
-    // transparently.
+    /// The uderlying reqwest client. TODO: Make a ref.
     client: Client
 }
 
@@ -190,17 +200,17 @@ impl OffClient {
     // Metadata
     // ------------------------------------------------------------------------
 
-    /// Get the given taxonomy.
-    /// 
+    /// Get the given taxonomy. Taxonomies are static JSON files.
+    ///
     /// # OFF API request
     ///
     /// `GET https://world.openfoodfacts.org/data/taxonomies/{taxonomy}.json`
     ///
     /// Taxomonies support only the locale "world". The default client locale
     /// is ignored.
-    /// 
+    ///
     /// # Arguments
-    /// 
+    ///
     /// * `taxonomy` - The taxonomy name. One of the following:
     ///     - additives
     ///     - allergens
@@ -275,6 +285,7 @@ impl OffClient {
     /// * `locale`- Optional locale. May contain a country code or a pair
     ///             <country code>-<language code>. If missing, uses the default
     ///             client locale.
+    /// TODO: Add pagination.
     pub fn products_by_category(&self, category: &str, locale: Option<&str>) -> OffResult {
         let base_url = self.base_url(locale)?;
         let url = base_url.join(&format!("category/{}.json", category))?;
@@ -296,6 +307,7 @@ impl OffClient {
     /// * `locale`- Optional locale. May contain a country code or a pair
     ///             <country code>-<language code>. If missing, uses the default
     ///             client locale.
+    /// TODO: Add pagination.
     pub fn products_with_additive(&self, additive: &str, locale: Option<&str>) -> OffResult {
         let base_url = self.base_url(locale)?;
         let url = base_url.join(&format!("additive/{}.json", additive))?;
@@ -317,6 +329,7 @@ impl OffClient {
     /// * `locale`- Optional locale. May contain a country code or a pair
     ///             <country code>-<language code>. If missing, uses the default
     ///             client locale.
+    /// TODO: Add pagination.
     pub fn products_in_state(&self, state: &str, locale: Option<&str>) -> OffResult {
         let base_url = self.base_url(locale)?;
         let url = base_url.join(&format!("state/{}.json", state))?;
@@ -344,6 +357,7 @@ impl OffClient {
     /// * `barcode` - The product barcode.
     /// * `locale`- Optional locale. Should contain only a country code TODO: VERIFY THIS.
     ///             If missing, uses the default client locale.
+    /// TODO: Support fields.
     pub fn product_by_barcode(&self, barcode: &str, locale: Option<&str>) -> OffResult {
         let api_url = self.api_url(locale)?;
         let url = api_url.join(&format!("product/{}", barcode))?;
@@ -363,6 +377,9 @@ impl OffClient {
     ///
     /// * `barcode` - The product barcode.
     /// * `id` - TBC: using `ingredients_fr` as in API docs.
+    ///     TODO: This should probably be `ingredients_{language}.
+    ///     {language} can be extracted from {locale}; if not given,
+    ///     `en` should be used.
     /// * `process_image` -  TBC: using `1` as in API docs.
     /// * `ocr_engine` - TBC: using `google_cloud_vision ` as in API docs.
     /// * `locale`- Optional locale. Should contain only a country code TODO: VERIFY THIS.
@@ -390,17 +407,17 @@ impl OffClient {
     // ------------------------------------------------------------------------
 
     /// Search products by barcode.
-    /// 
+    ///
     /// # OFF API request
     ///
     /// ```ignore
     /// GET https://{locale}.openfoodfacts.org/api/v0/search
     /// ```
-    /// 
+    ///
     /// See also `product_by_barcode()` above.
     ///
     /// # Arguments
-    /// 
+    ///
     /// * `barcodes` - A string with comma-separated barcodes.
     /// * `fields` - Some(str) with a string with comma-separated fields or `*``
     ///              or None. Both `*` and None return all fields.
@@ -425,7 +442,7 @@ impl OffClient {
 
     // TODO: Serialization
     // Option 1
-    //  qparams = SearchParams::to_array() -> &[] returns an array of tuples. 
+    //  qparams = SearchParams::to_array() -> &[] returns an array of tuples.
     //  The default serde_urlencoded::to_string() does the actual serialization
     //  as expected by self.client.get(search_url).query(qparams).send()?;
     //
@@ -442,18 +459,37 @@ impl OffClient {
     fn base_url(&self, locale: Option<&str>) -> Result<Url, ParseError> {
         let url = format!("https://{}.openfoodfacts.org/", locale.unwrap_or(&self.locale));
         Url::parse(&url)
-      }
+    }
 
     /// Return the API URL with the given locale.
     fn api_url(&self, locale: Option<&str>) -> Result<Url, ParseError> {
         let base = self.base_url(locale)?;
-        base.join("api/v0/")
+        base.join(&format!("api/{}/", self.version))
     }
 
     /// Return the search URL with the given locale.
     fn search_url(&self, locale: Option<&str>) -> Result<Url, ParseError> {
         let base = self.base_url(locale)?;
         base.join("cgi/search.pl")
+    }
+
+    /// Return the country code part of the locale or the empty string.
+    fn country_code(locale: &str) -> &str {
+        Self::_split_locale(locale, 0)
+    }
+
+    /// Return the language code part of the locale or the empty string.
+    fn language_code(locale: &str) -> &str {
+        Self::_split_locale(locale, 1)
+    }
+
+    #[inline]
+    fn _split_locale(locale: &str, n: usize) -> &str {
+        if let Some(v) =  locale.split("-").nth(n) {
+            v
+        } else {
+            ""
+        }
     }
 }
 
@@ -469,8 +505,9 @@ mod tests {
 
     // Get a Builder with default options.
     #[test]
-    fn test_builder_default_options() {
-        let builder = Off::new();
+    fn builder_default_options() {
+        let builder = Off::new("v0");
+        assert_eq!(builder.version, "v0");
         assert_eq!(builder.locale, "world");
         assert_eq!(builder.auth, None);
         assert_eq!(builder.user_agent, Some(format!(
@@ -481,8 +518,8 @@ mod tests {
 
     // Set Builder options.
     #[test]
-    fn test_builder_with_options() {
-        let builder = Off::new().locale("gr")
+    fn builder_with_options() {
+        let builder = Off::new("v0").locale("gr")
                                  .auth("user", "pwd")
                                  .user_agent("user agent");
         assert_eq!(builder.locale, "gr");
@@ -493,39 +530,64 @@ mod tests {
 
     // Get base URL with default locale
     #[test]
-    fn test_client_base_url_default() {
-        let off = Off::new().build().unwrap();
+    fn client_base_url_default() {
+        let off = Off::new("v0").build().unwrap();
         assert_eq!(off.base_url(None).unwrap().as_str(),
                    "https://world.openfoodfacts.org/");
     }
 
     // Get base URL with given locale
     #[test]
-    fn test_client_base_url_locale() {
-        let off = Off::new().build().unwrap();
+    fn client_base_url_locale() {
+        let off = Off::new("v0").build().unwrap();
         assert_eq!(off.base_url(Some("gr")).unwrap().as_str(),
                    "https://gr.openfoodfacts.org/");
     }
 
     // Get API URL
     #[test]
-    fn test_client_api_url() {
-        let off = Off::new().build().unwrap();
-        assert_eq!(off.api_url(None).unwrap().as_str(),
+    fn client_api_url() {
+        let off_v0 = Off::new("v0").build().unwrap();
+        assert_eq!(off_v0.api_url(None).unwrap().as_str(),
                    "https://world.openfoodfacts.org/api/v0/");
-    }
+
+        let off_v2 = Off::new("v2").build().unwrap();
+        assert_eq!(off_v2.api_url(None).unwrap().as_str(),
+                  "https://world.openfoodfacts.org/api/v2/");
+        }
 
     // Get search URL
     #[test]
-    fn test_client_search_url() {
-        let off = Off::new().build().unwrap();
+    fn client_search_url() {
+        let off = Off::new("v0").build().unwrap();
         assert_eq!(off.search_url(Some("gr")).unwrap().as_str(),
                    "https://gr.openfoodfacts.org/cgi/search.pl");
     }
 
+    // Extract country code
     #[test]
+    fn client_country_code() {
+        assert_eq!(OffClient::country_code(""), "");
+        assert_eq!(OffClient::country_code("-fr"), "");
+        assert_eq!(OffClient::country_code("fr"), "fr");
+    }
+
+    // Extract language code
+    #[test]
+    fn client_language_code() {
+        assert_eq!(OffClient::language_code(""), "");
+        assert_eq!(OffClient::language_code("fr"), "");
+        assert_eq!(OffClient::language_code("fr-"), "");
+        assert_eq!(OffClient::language_code("-fr"), "fr");
+        assert_eq!(OffClient::language_code("fr-ca"), "ca");
+    }
+
+    // Integration tests. TODO: Move out ?
+
+    #[test]
+    #[ignore]
     fn test_client_taxonomy() {
-        let off = Off::new().build().unwrap();
+        let off = Off::new("v0").build().unwrap();
         let response = off.taxonomy("nova_groups").unwrap();
         assert_eq!(response.url().as_str(),
                    "https://world.openfoodfacts.org/data/taxonomies/nova_groups.json");
@@ -533,8 +595,9 @@ mod tests {
     }
 
     #[test]
+    #[ignore]
     fn test_client_taxonomy_not_found() {
-        let off = Off::new().build().unwrap();
+        let off = Off::new("v0").build().unwrap();
         let response = off.taxonomy("not_found").unwrap();
         assert_eq!(response.url().as_str(),
                    "https://world.openfoodfacts.org/data/taxonomies/not_found.json");
@@ -542,48 +605,54 @@ mod tests {
     }
 
     #[test]
+    #[ignore]
     fn test_client_facet() {
-        let off = Off::new().build().unwrap();
+        let off = Off::new("v0").build().unwrap();
         let response = off.facet("brands", Some("gr")).unwrap();
         assert_eq!(response.url().as_str(), "https://gr.openfoodfacts.org/brands.json");
         assert_eq!(response.status().is_success(), true);
     }
 
     #[test]
+    #[ignore]
     fn test_client_categories() {
-        let off = Off::new().build().unwrap();
+        let off = Off::new("v0").build().unwrap();
         let response = off.categories().unwrap();
         assert_eq!(response.url().as_str(), "https://world.openfoodfacts.org/categories.json");
         assert_eq!(response.status().is_success(), true);
     }
 
     #[test]
+    #[ignore]
     fn test_client_products_by_category() {
-        let off = Off::new().build().unwrap();
+        let off = Off::new("v0").build().unwrap();
         let response = off.products_by_category("cheeses", None).unwrap();
         assert_eq!(response.url().as_str(), "https://world.openfoodfacts.org/category/cheeses.json");
         assert_eq!(response.status().is_success(), true);
     }
 
     #[test]
+    #[ignore]
     fn test_client_products_with_additive() {
-        let off = Off::new().build().unwrap();
+        let off = Off::new("v0").build().unwrap();
         let response = off.products_with_additive("e322-lecithins", None).unwrap();
         assert_eq!(response.url().as_str(), "https://world.openfoodfacts.org/additive/e322-lecithins.json");
         assert_eq!(response.status().is_success(), true);
     }
 
     #[test]
+    #[ignore]
     fn test_client_products_in_state() {
-        let off = Off::new().build().unwrap();
+        let off = Off::new("v0").build().unwrap();
         let response = off.products_in_state("empty", None).unwrap();
         assert_eq!(response.url().as_str(), "https://world.openfoodfacts.org/state/empty.json");
         assert_eq!(response.status().is_success(), true);
     }
 
     #[test]
+    #[ignore]
     fn test_client_product_by_barcode() {
-        let off = Off::new().build().unwrap();
+        let off = Off::new("v0").build().unwrap();
         let response = off.product_by_barcode("069000019832", None).unwrap();  // Diet Pepsi
         assert_eq!(response.url().as_str(), "https://world.openfoodfacts.org/api/v0/product/069000019832");
         assert_eq!(response.status().is_success(), true);
