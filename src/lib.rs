@@ -4,6 +4,7 @@ use reqwest::blocking::{Client, Response};
 use reqwest::header;
 use url::{Url, ParseError};
 
+mod output;
 mod search;
 
 use crate::search::Query;
@@ -11,7 +12,9 @@ use crate::search::Query;
 const VERSION: &str = "alpha";
 
 
-// Builder --------------------------------------------------------------------
+// ----------------------------------------------------------------------------
+// Builder
+// ----------------------------------------------------------------------------
 
 // (username, password)
 #[derive(Debug, PartialEq)]
@@ -85,22 +88,23 @@ impl Off {
     /// Create a new OffClient with the current builder options.
     /// After build() is called, the builder object is invalid.
     pub fn build(self) -> Result<OffClient, reqwest::Error> {
+        // Default headers
         let mut headers = header::HeaderMap::new();
-        if let Some(user_agent) = self.user_agent {
-            headers.insert(header::USER_AGENT,
-                           header::HeaderValue::from_str(&user_agent).unwrap());
-        }
         if let Some(auth) = self.auth {
             // TODO: Needs to be encoded !
             let basic_auth = format!("Basic {}:{}", auth.0, auth.1);
             headers.insert(reqwest::header::AUTHORIZATION,
                            reqwest::header::HeaderValue::from_str(&basic_auth).unwrap());
         }
-        // Build the reqwest client.
         let mut cb = Client::builder();
         if !headers.is_empty() {
             cb = cb.default_headers(headers);
         }
+        if let Some(user_agent) = self.user_agent {
+            cb = cb.user_agent(user_agent);
+        }
+        // TODO: gzip compression
+        // TODO: Timeouts
         Ok(OffClient {
             version: self.version,
             locale: self.locale,
@@ -110,61 +114,9 @@ impl Off {
 }
 
 
-// Client ---------------------------------------------------------------------
-
-
-// Output formats
-pub enum Format {
-    Json,
-    Xml
-}
-
-// Sorting criteria
-pub enum Sorting {
-    Popularity,
-    ProductName,
-    CreatedDate,
-    LastModifiedDate
-}
-
-// TODO: Collect all output parameters in a separate struct ?
-//  locale could be added to the output set.
-// output = Output::new() -> defaults: format=Format::Json, sort_by=Sorting::Popularity
-// outout = Output{format: , sort_by} ?
-// output.format(Format)
-// output.sort_by(Sorting),
-
-// format: Default is JSON -> method call parameter
-// pub fn format(& mut self, format: Format) -> & mut Self {
-//     self.params.insert(String::from(match format {
-//         Json => "json",
-//         Xml => "xml"
-//     }), Value::Bool(true));
-//     self
-// }
-
-// sorting
-// pub fn sort_by(& mut self, sorting: Sorting) -> & mut Self {
-//     self.params.insert(String::from("sort_by"), Value::String(match sorting {
-//         Popularity => String::from("unique_scans_n"),
-//         ProductName => String::from("product_name"),
-//         CreatedDate => String::from("created_t"),
-//         LastModifiedDate => String::from("last_modified_t")
-//     }));
-//     self
-// }
-
-// TODO: page and page_size
-// pagination = Pagination::new()
-// pagination = Pagination{page, page_size} ?
-// pagination.page(N)
-// pagination.next_page()
-// pagination.prev_page()
-// pagination.page_size()
-
-
-// TODO: fields
-// TODO: nocache
+// ----------------------------------------------------------------------------
+// Client
+// ----------------------------------------------------------------------------
 
 /// The OFF API client, created using the Off() builder.
 ///
@@ -183,16 +135,6 @@ pub struct OffClient {
 
 /// The return type of all OffClient methods.
 type OffResult = Result<Response, Box<dyn Error>>;
-
-
-// page and locale should be optional.
-// JSON response data can be deserialized into untyped JSON values
-// with response.json::<HashMap::<String, serde_json::Value>>()
-//
-// If a pair <cc>-<lc> is given, the name of the /category/ segment
-// will be localized. VERFIY THIS. If one gives a language code, it
-// should be possible to pass the localized segment name in an optional
-// parameter?
 
 
 impl OffClient {
@@ -500,7 +442,7 @@ mod tests {
 
     // Get a Builder with default options.
     #[test]
-    fn builder_default_options() {
+    fn builder_defaults() {
         let builder = Off::new("v0");
         assert_eq!(builder.version, "v0");
         assert_eq!(builder.locale, "world");
@@ -513,7 +455,7 @@ mod tests {
 
     // Set Builder options.
     #[test]
-    fn builder_with_options() {
+    fn builder_options() {
         let builder = Off::new("v0").locale("gr")
                                  .auth("user", "pwd")
                                  .user_agent("user agent");

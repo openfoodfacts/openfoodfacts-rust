@@ -2,6 +2,14 @@
 use std::collections::HashMap;
 use serde::ser::{Serialize, Serializer};
 
+// Sorting criteria
+pub enum Sorting {
+    Popularity,
+    ProductName,
+    CreatedDate,
+    LastModifiedDate
+}
+
 /// The value of a search parameter
 enum Value {
     String(String),
@@ -49,7 +57,7 @@ impl Query {
     /// ```
     ///
     /// # Arguments
-    /// 
+    ///
     /// * name - A valid criteria name. See openfoodfacts API docs.
     /// * op - One of "contains" or "does_not_contain".
     /// * value - The searched criteria value.
@@ -65,14 +73,14 @@ impl Query {
         self
     }
 
-    /// Define an ingredient query parameter. 
+    /// Define an ingredient query parameter.
     ///
     /// Produces a pair
-    /// 
+    ///
     /// `<name>=<value>`
     ///
     /// # Arguments
-    /// 
+    ///
     /// * ingredient - One of:
     ///     - "additives"
     ///     - "ingredients_from_palm_oil",
@@ -102,11 +110,11 @@ impl Query {
     /// nutriment_value_N=<quantity>
     /// ```
     /// # Arguments
-    /// 
+    ///
     /// * nutriment - The nutriment name. See the openfoodfacts API docs.
     /// * op - The comparation operation to perform. One of "lt", "lte", "gt", "gte",
     ///        "eq".
-    /// * value - The value to compare. 
+    /// * value - The value to compare.
     pub fn nutriment(& mut self, nutriment: &str, op: &str, value: u32) -> & mut Self {
         self.nutriment_index += 1;
         self.params.insert(format!("nutriment_{}", self.nutriment_index),
@@ -146,7 +154,7 @@ mod tests {
     //     // page, page_size, format(json, Xml).
 
     //     let mut spi = search_params.into_iter();
-    
+
     //     if let SearchParam::Criteria(brands) = spi.next().unwrap() {
     //         assert_eq!(brands.name, "brands");
     //         assert_eq!(brands.op, "contains");
