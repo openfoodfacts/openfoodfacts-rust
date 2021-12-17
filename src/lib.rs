@@ -16,7 +16,7 @@ const VERSION: &str = "alpha";
 // Builder
 // ----------------------------------------------------------------------------
 
-// (username, password)
+// Authentication tuple (username, password).
 #[derive(Debug, PartialEq)]
 struct Auth(String, String);
 
@@ -27,19 +27,20 @@ struct Auth(String, String);
 /// ```ignore
 /// let off = Off:new("v0").locale("fr").build()?;
 /// ```
+#[derive(Debug)]
 pub struct Off {
-    /// The API version to use. One of "v0" or "v2".
+    // The API version to use. One of "v0" or "v2".
     version: String,
-    /// The default locale. A country code, a "{country code}-{language code}"
-    /// pair or "world".
-    ///
-    /// * Country codes must be lowercase ISO 3166-1 codes.
-    /// * Language codes must be lowercase ISO 639-1 codes.
+    // The default locale. A country code, a "{country code}-{language code}"
+    // pair or "world".
+    //
+    // * Country codes must be lowercase ISO 3166-1 codes.
+    // * Language codes must be lowercase ISO 639-1 codes.
     locale: String,
-    /// The authentication credentials. Optional. Only needed for write operations.
+    // The authentication credentials. Optional. Only needed for write operations.
     auth: Option<Auth>,
-    /// The User-Agent header value to send on each Off request. Optional.
-    /// If not given, use the default user agent.
+    // The User-Agent header value to send on each Off request. Optional.
+    // If not given, use the default user agent.
     user_agent: Option<String>
 }
 
@@ -118,18 +119,19 @@ impl Off {
 // Client
 // ----------------------------------------------------------------------------
 
-/// The OFF API client, created using the Off() builder.
+/// The OFF API client, created using the Off builder.
 ///
 /// All methods return a OffResult object.
 ///
 /// The OffClient owns a reqwest::Client object. One single OffClient should
 /// be used per application.
+#[derive(Debug)]
 pub struct OffClient {
-    /// The API version.
+    // The API version.
     version: String,
-    /// The default locale to use when no locale is given in a method call.
+    // The default locale to use when no locale is given in a method call.
     locale: String,
-    /// The uderlying reqwest client. TODO: Make a ref.
+    // The uderlying reqwest client. TODO: Make a ref ?
     client: Client
 }
 

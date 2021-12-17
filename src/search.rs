@@ -1,4 +1,3 @@
-/// Search paramters.
 use std::collections::HashMap;
 use serde::ser::{Serialize, Serializer};
 

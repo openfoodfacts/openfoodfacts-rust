@@ -22,23 +22,18 @@ impl Output {
 
     /// Set the locale.
     pub fn locale(mut self, value: Option<&str>) -> Self {
-        self.locale = match value {
-            Some(s) => Some(s.to_string()),
-            None => None
-        };
+        self.locale = value.map(|s| s.to_string());
         self
     }
 
-    /// Set the current page. `value` must be >= 0.
+    /// Set the current page.
     pub fn page(mut self, value: Option<usize>) -> Self {
-        debug_assert!(value.is_none() || value.unwrap() >= 0);
         self.page = value;
         self
     }
 
-    /// Set the page size. `value` must be >= 0.
+    /// Set the page size.
     pub fn page_size(mut self, value: Option<usize>) -> Self {
-        debug_assert!(value.is_none() || value.unwrap() >= 0);
         self.page_size = value;
         self
     }
@@ -46,10 +41,7 @@ impl Output {
     /// Set the fields. A comma-separated list of field names.
     /// An empty string is equivalent to None.
     pub fn fields(mut self, value: Option<&str>) -> Self {
-        self.fields = match value {
-            Some(s) => if s.is_empty() { None } else { Some(s.to_string())},
-            None => None
-        };
+        self.fields = value.and_then(|s| if s.is_empty() { None } else { Some(s.to_string()) });
         self
     }
 
