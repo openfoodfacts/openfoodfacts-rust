@@ -1,20 +1,16 @@
 use std::env::consts::OS;
-use std::error::Error;
-use reqwest::blocking::{Client, Response};
+use reqwest::blocking::Client;
 use reqwest::header;
-use url::{Url, ParseError};
 
+mod client;
 mod output;
 mod search;
 
-use crate::search::Query;
+pub use crate::client::{ApiVersion, OffClient, OffResult};
+pub use crate::output::{Output, Locale};
 
-const VERSION: &str = "alpha";
-
-
-// ----------------------------------------------------------------------------
-// Builder
-// ----------------------------------------------------------------------------
+// The version of this library.
+pub const VERSION: &str = "alpha";
 
 // Authentication tuple (username, password).
 #[derive(Debug, PartialEq)]
@@ -25,19 +21,14 @@ struct Auth(String, String);
 /// # Examples
 ///
 /// ```ignore
-/// let off = Off:new("v0").locale("fr").build()?;
+/// let off = Off:new(ApiVersion::V0).locale(Locale::new().country("fr")).build()?;
 /// ```
 #[derive(Debug)]
 pub struct Off {
-    // The API version to use. One of "v0" or "v2".
-    version: String,
-    // The default locale. A country code, a "{country code}-{language code}"
-    // pair or "world".
-    //
-    // * Country codes must be lowercase ISO 3166-1 codes.
-    // * Language codes must be lowercase ISO 639-1 codes.
-    locale: String,
-    // The authentication credentials. Optional. Only needed for write operations.
+    version: ApiVersion,
+    // The default locale.
+    locale: Locale,
+    // Optional. Only needed for write operations.
     auth: Option<Auth>,
     // The User-Agent header value to send on each Off request. Optional.
     // If not given, use the default user agent.
@@ -47,18 +38,18 @@ pub struct Off {
 impl Off {
     /// Create a new builder with defaults:
     ///
-    /// * The default locale is set to "world".
+    /// * The default locale is set to `Locale::default()`.
     /// * No authentication credentials
     /// * The user agent is set to
     ///   `OffRustClient - {OS name} - Version {lib version} - {github repo URL}`
     ///
     /// # Arguments
     ///
-    /// * version - The API version to use. One of "v0", "v2".
-    pub fn new(version: &str) -> Self {
+    /// * version - The API version to use.
+    pub fn new(version: ApiVersion) -> Self {
         Self {
-            version: version.to_string(),
-            locale: "world".to_string(),
+            version: version,
+            locale: Locale::default(),
             auth: None,
             // TODO: Get version and URL from somewhere else ?
             user_agent: Some(format!(
@@ -69,8 +60,8 @@ impl Off {
     }
 
     /// Set the default locale.
-    pub fn locale(mut self, value: &str) -> Self {
-        self.locale = value.to_string();
+    pub fn locale(mut self, value: Locale) -> Self {
+        self.locale = value;
         self
     }
 
@@ -115,339 +106,15 @@ impl Off {
 }
 
 
-// ----------------------------------------------------------------------------
-// Client
-// ----------------------------------------------------------------------------
-
-/// The OFF API client, created using the Off builder.
-///
-/// All methods return a OffResult object.
-///
-/// The OffClient owns a reqwest::Client object. One single OffClient should
-/// be used per application.
-#[derive(Debug)]
-pub struct OffClient {
-    // The API version.
-    version: String,
-    // The default locale to use when no locale is given in a method call.
-    locale: String,
-    // The uderlying reqwest client. TODO: Make a ref ?
-    client: Client
-}
-
-/// The return type of all OffClient methods.
-type OffResult = Result<Response, Box<dyn Error>>;
-
-
-impl OffClient {
-    // ------------------------------------------------------------------------
-    // Metadata
-    // ------------------------------------------------------------------------
-
-    /// Get the given taxonomy. Taxonomies are static JSON files.
-    ///
-    /// # OFF API request
-    ///
-    /// `GET https://world.openfoodfacts.org/data/taxonomies/{taxonomy}.json`
-    ///
-    /// Taxomonies support only the locale "world". The default client locale
-    /// is ignored.
-    ///
-    /// # Arguments
-    ///
-    /// * `taxonomy` - The taxonomy name. One of the following:
-    ///     - additives
-    ///     - allergens
-    ///     - additives_classes (*)
-    ///     - brands
-    ///     - countries
-    ///     - ingredients
-    ///     - ingredients_analysis (*)
-    ///     - languages
-    ///     - nova_groups (*)
-    ///     - nutrient_levels (*)
-    ///     - states
-    /// (*) Only taxomomy. There is no facet equivalent.
-    pub fn taxonomy(&self, taxonomy: &str) -> OffResult {
-        let base_url = self.base_url(Some("world"))?;   // force world locale.
-        let url = base_url.join(&format!("data/taxonomies/{}.json", taxonomy))?;
-        let response = self.client.get(url).send()?;
-        Ok(response)
-    }
-
-    /// Get the given facet.
-    ///
-    /// # OFF API request
-    ///
-    /// `GET https://{locale}.openfoodfacts.org/{facet}.json`
-    ///
-    /// * `facet` - Thefacet name. One of the following:
-    ///     - additives
-    ///     - allergens
-    ///     - brands
-    ///     - countries
-    ///     - ingredients
-    ///     - languages
-    ///     - states
-    /// * `locale`- Optional locale. Should contain only a country code.
-    ///             If missing, uses the default client locale.
-    pub fn facet(&self, facet: &str, locale: Option<&str>) -> OffResult {
-        let base_url = self.base_url(locale)?;
-        let url = base_url.join(&format!("{}.json", facet))?;
-        let response = self.client.get(url).send()?;
-        Ok(response)
-    }
-
-    /// Get all the categories.
-    ///
-    /// # OFF API request
-    ///
-    /// ```ignore
-    /// GET https://world.openfoodfacts.org/categories.json
-    /// ```
-    ///
-    /// Categories support only the locale "world". The default client locale
-    /// is ignored.
-    pub fn categories(&self) -> OffResult {
-        let base_url = self.base_url(Some("world"))?;   // force world locale.
-        let url = base_url.join("categories.json")?;
-        let response = self.client.get(url).send()?;
-        Ok(response)
-    }
-
-    /// Get all products belonging to the given category.
-    ///
-    /// # OFF API request
-    ///
-    /// ```ignore
-    /// GET https://{locale}.openfoodfacts.org/category/{category}.json
-    /// ```
-    ///
-    /// # Arguments
-    ///
-    /// * `category`- The category name.
-    /// * `locale`- Optional locale. May contain a country code or a pair
-    ///             <country code>-<language code>. If missing, uses the default
-    ///             client locale.
-    /// TODO: Add pagination.
-    pub fn products_by_category(&self, category: &str, locale: Option<&str>) -> OffResult {
-        let base_url = self.base_url(locale)?;
-        let url = base_url.join(&format!("category/{}.json", category))?;
-        let response = self.client.get(url).send()?;
-        Ok(response)
-    }
-
-    /// Get all products containing the given additive.
-    ///
-    /// # OFF API request
-    ///
-    /// ```ignore
-    /// GET https://{locale}.openfoodfacts.org/additive/{additive}.json
-    /// ```
-    ///
-    /// # Arguments
-    ///
-    /// * `additive`- The additive name.
-    /// * `locale`- Optional locale. May contain a country code or a pair
-    ///             <country code>-<language code>. If missing, uses the default
-    ///             client locale.
-    /// TODO: Add pagination.
-    pub fn products_with_additive(&self, additive: &str, locale: Option<&str>) -> OffResult {
-        let base_url = self.base_url(locale)?;
-        let url = base_url.join(&format!("additive/{}.json", additive))?;
-        let response = self.client.get(url).send()?;
-        Ok(response)
-    }
-
-    /// Get all products in the given state.
-    ///
-    /// # OFF API request
-    ///
-    /// ```ignore
-    /// GET https://{locale}.openfoodfacts.org/state/{state}.json
-    /// ```
-    ///
-    /// # Arguments
-    ///
-    /// * `state`- The state name.
-    /// * `locale`- Optional locale. May contain a country code or a pair
-    ///             <country code>-<language code>. If missing, uses the default
-    ///             client locale.
-    /// TODO: Add pagination.
-    pub fn products_in_state(&self, state: &str, locale: Option<&str>) -> OffResult {
-        let base_url = self.base_url(locale)?;
-        let url = base_url.join(&format!("state/{}.json", state))?;
-        let response = self.client.get(url).send()?;
-        Ok(response)
-    }
-
-    // ------------------------------------------------------------------------
-    // Read
-    // ------------------------------------------------------------------------
-
-    /// Get the nutrition facts of the given product.
-    ///
-    /// # OFF API request
-    ///
-    /// ```ignore
-    /// GET https://{locale}.openfoodfacts.org/api/v0/product/{barcode}
-    /// ```
-    ///
-    /// Not clear how this differs from the get products by barcodes (products()) call
-    /// below.
-    ///
-    /// # Arguments
-    ///
-    /// * `barcode` - The product barcode.
-    /// * `locale`- Optional locale. Should contain only a country code TODO: VERIFY THIS.
-    ///             If missing, uses the default client locale.
-    /// TODO: Support fields.
-    pub fn product_by_barcode(&self, barcode: &str, locale: Option<&str>) -> OffResult {
-        let api_url = self.api_url(locale)?;
-        let url = api_url.join(&format!("product/{}", barcode))?;
-        let response = self.client.get(url).send()?;
-        Ok(response)
-    }
-
-    /// Get the nutrients of the given product.
-    ///
-    /// # OFF API request
-    ///
-    /// ```ignore
-    /// GET https://{locale}.openfoodfacts.org/cgi/nutients.pl
-    /// ```
-    ///
-    /// # Arguments
-    ///
-    /// * `barcode` - The product barcode.
-    /// * `id` - TBC: using `ingredients_fr` as in API docs.
-    ///     TODO: This should probably be `ingredients_{language}.
-    ///     {language} can be extracted from {locale}; if not given,
-    ///     `en` should be used.
-    /// * `process_image` -  TBC: using `1` as in API docs.
-    /// * `ocr_engine` - TBC: using `google_cloud_vision ` as in API docs.
-    /// * `locale`- Optional locale. Should contain only a country code TODO: VERIFY THIS.
-    ///             If missing, uses the default client locale.
-    pub fn product_nutrients(&self, barcode: &str, locale: Option<&str>) -> OffResult {
-        let api_url = self.base_url(locale)?;
-        let url = api_url.join("cgi/nutrients.pl")?;
-        let response = self.client.get(url).query(&[
-                ("code", barcode),
-                ("id", "ingredients_fr"),
-                ("process_image", "1"),
-                ("ocr_engine", "google_cloud_vision")
-            ]).send()?;
-        Ok(response)
-    }
-
-    // ------------------------------------------------------------------------
-    // Write
-    // ------------------------------------------------------------------------
-
-    // TODO
-
-    // ------------------------------------------------------------------------
-    // Search
-    // ------------------------------------------------------------------------
-
-    /// Search products by barcode.
-    ///
-    /// # OFF API request
-    ///
-    /// ```ignore
-    /// GET https://{locale}.openfoodfacts.org/api/v0/search
-    /// ```
-    ///
-    /// See also `product_by_barcode()` above.
-    ///
-    /// # Arguments
-    ///
-    /// * `barcodes` - A string with comma-separated barcodes.
-    /// * `fields` - Some(str) with a string with comma-separated fields or `*``
-    ///              or None. Both `*` and None return all fields.
-    ///
-    pub fn search_by_barcode(&self, barcodes: &str, fields: Option<&str>, locale: Option<&str>) -> OffResult {
-        let api_url = self.api_url(locale)?;
-        let url = api_url.join("search")?;
-        let response = self.client.get(url).query(&[
-            ("code", barcodes),
-            ("fields", match fields {
-                Some("*") | None => "",
-                _ => fields.unwrap()
-            })
-        ]).send()?;
-        Ok(response)
-    }
-
-    /// Search using filters.
-    pub fn search(&self, query: Query) {
-        // TODO
-    }
-
-    // TODO: Serialization
-    // Option 1
-    //  qparams = SearchParams::to_array() -> &[] returns an array of tuples.
-    //  The default serde_urlencoded::to_string() does the actual serialization
-    //  as expected by self.client.get(search_url).query(qparams).send()?;
-    //
-    // Option 2
-    //  SearchParams implement Serialize, which builds the array and returns
-    //  serde_urlencoded::to_string().
-    // pub fn search(&self, params: &SearchParams, output: &OutputParams, page: &Pagination, locale: Option<&str>) -> OffResult {
-    //   let search_url = self.search_url(locale)?;
-    //   let response = self.client.get(search_url).query(params).send()?;
-    //   Ok(response)
-    // }
-
-    /// Return the base URL with the given locale.
-    fn base_url(&self, locale: Option<&str>) -> Result<Url, ParseError> {
-        let url = format!("https://{}.openfoodfacts.org/", locale.unwrap_or(&self.locale));
-        Url::parse(&url)
-    }
-
-    /// Return the API URL with the given locale.
-    fn api_url(&self, locale: Option<&str>) -> Result<Url, ParseError> {
-        let base = self.base_url(locale)?;
-        base.join(&format!("api/{}/", self.version))
-    }
-
-    /// Return the search URL with the given locale.
-    fn search_url(&self, locale: Option<&str>) -> Result<Url, ParseError> {
-        let base = self.base_url(locale)?;
-        base.join("cgi/search.pl")
-    }
-
-    /// Return the country code part of the locale or the empty string.
-    fn country_code(locale: &str) -> &str {
-        Self::_split_locale(locale, 0)
-    }
-
-    /// Return the language code part of the locale or the empty string.
-    fn language_code(locale: &str) -> &str {
-        Self::_split_locale(locale, 1)
-    }
-
-    #[inline]
-    fn _split_locale(locale: &str, n: usize) -> &str {
-        if let Some(v) =  locale.split("-").nth(n) {
-            v
-        } else {
-            ""
-        }
-    }
-}
-
-
 #[cfg(test)]
 mod tests {
     use super::*;
 
-    // Get a Builder with default options.
     #[test]
-    fn builder_defaults() {
-        let builder = Off::new("v0");
-        assert_eq!(builder.version, "v0");
-        assert_eq!(builder.locale, "world");
+    fn default() {
+        let builder = Off::new(ApiVersion::V0);
+        assert_eq!(builder.version, ApiVersion::V0);
+        assert_eq!(builder.locale, Locale::default());
         assert_eq!(builder.auth, None);
         assert_eq!(builder.user_agent, Some(format!(
             "OffRustClient - {} - Version {} - {}",
@@ -455,69 +122,15 @@ mod tests {
         )));
     }
 
-    // Set Builder options.
     #[test]
-    fn builder_options() {
-        let builder = Off::new("v0").locale("gr")
-                                 .auth("user", "pwd")
-                                 .user_agent("user agent");
-        assert_eq!(builder.locale, "gr");
+    fn options() {
+        let builder = Off::new(ApiVersion::V0)
+            .locale(Locale::new().country("gr"))
+            .auth("user", "pwd")
+            .user_agent("user agent");
+        assert_eq!(builder.locale, Locale::new().country("gr"));
         assert_eq!(builder.auth,
-                   Some(Auth("user".to_string(), "pwd".to_string())));
-        assert_eq!(builder.user_agent, Some("user agent".to_string()));
-    }
-
-    // Get base URL with default locale
-    #[test]
-    fn client_base_url_default() {
-        let off = Off::new("v0").build().unwrap();
-        assert_eq!(off.base_url(None).unwrap().as_str(),
-                   "https://world.openfoodfacts.org/");
-    }
-
-    // Get base URL with given locale
-    #[test]
-    fn client_base_url_locale() {
-        let off = Off::new("v0").build().unwrap();
-        assert_eq!(off.base_url(Some("gr")).unwrap().as_str(),
-                   "https://gr.openfoodfacts.org/");
-    }
-
-    // Get API URL
-    #[test]
-    fn client_api_url() {
-        let off_v0 = Off::new("v0").build().unwrap();
-        assert_eq!(off_v0.api_url(None).unwrap().as_str(),
-                   "https://world.openfoodfacts.org/api/v0/");
-
-        let off_v2 = Off::new("v2").build().unwrap();
-        assert_eq!(off_v2.api_url(None).unwrap().as_str(),
-                  "https://world.openfoodfacts.org/api/v2/");
-        }
-
-    // Get search URL
-    #[test]
-    fn client_search_url() {
-        let off = Off::new("v0").build().unwrap();
-        assert_eq!(off.search_url(Some("gr")).unwrap().as_str(),
-                   "https://gr.openfoodfacts.org/cgi/search.pl");
-    }
-
-    // Extract country code
-    #[test]
-    fn client_country_code() {
-        assert_eq!(OffClient::country_code(""), "");
-        assert_eq!(OffClient::country_code("-fr"), "");
-        assert_eq!(OffClient::country_code("fr"), "fr");
-    }
-
-    // Extract language code
-    #[test]
-    fn client_language_code() {
-        assert_eq!(OffClient::language_code(""), "");
-        assert_eq!(OffClient::language_code("fr"), "");
-        assert_eq!(OffClient::language_code("fr-"), "");
-        assert_eq!(OffClient::language_code("-fr"), "fr");
-        assert_eq!(OffClient::language_code("fr-ca"), "ca");
+                   Some(Auth(String::from("user"), String::from("pwd"))));
+        assert_eq!(builder.user_agent, Some(String::from("user agent")));
     }
 }
