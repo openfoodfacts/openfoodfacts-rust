@@ -32,7 +32,10 @@ fn taxonomy_not_found() {
 #[ignore]
 fn facet() {
     let off = Off::new(ApiVersion::V0).build().unwrap();
-    let output = Output::new().locale(Some(Locale::new().country("gr")));
+    let output = Output {
+        locale: Some(Locale::new("gr", None)),
+        ..Output::default()
+    };
     let response = off.facet("brands", Some(output)).unwrap();
 
     assert_eq!(response.url().as_str(), "https://gr.openfoodfacts.org/brands.json");

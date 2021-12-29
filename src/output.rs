@@ -1,6 +1,7 @@
 use std::convert::Infallible;
 use std::fmt::{self, Display, Formatter};
 use std::str::FromStr;
+use std::vec::Vec;
 
 /// Locale. A country code (`cc`) and an optional
 /// language code (`lc`).
@@ -9,8 +10,28 @@ use std::str::FromStr;
 ///   or the special value "world".
 /// * Language codes must be lowercase ISO 639-1 codes.
 ///
-/// Can be converted to a string "{cc}" or "{cc}-{lc}".
-/// Can be constructed from a string with the same formats.
+/// # Constructors
+///
+/// * Create the default Locale (cc = "world" and lc = None).
+///
+/// ```ignore
+/// let locale = Locale::default();
+/// ```
+///
+/// * Create a locale with the given country code and optional language code.
+///
+/// ```ignore
+/// let cc_only = Locale::new("fr", None);
+/// let cc_lc = Locale::new("fr", Some("ca"));
+///
+/// * Create a locale from a string with the formats "{cc}" or "{cc}-{lc}".
+///
+/// ```ignore
+/// let cc_only = Locale::from_str("fr");
+/// let cc_lc = Locale::from_str("fr-ca");
+/// ```
+///
+/// Locales can be converted int a string "{cc}" or "{cc}-{lc}" with `Locale::to_string()`.
 #[derive(Debug, PartialEq)]
 pub struct Locale {
     pub cc: String,
@@ -19,10 +40,7 @@ pub struct Locale {
 
 impl Default for Locale {
     fn default() -> Self {
-        Self {
-            cc: String::from("world"),
-            lc: None
-        }
+        Self::new("world", None)
     }
 }
 
@@ -44,80 +62,84 @@ impl FromStr for Locale {
         let mut split = s.split("-");
         let cc = split.next();
         let lc = split.next();
-        Ok(Self::new().country(cc.unwrap()).language(lc))
+        Ok(Self::new(cc.unwrap(), lc))
     }
 }
 
 impl Locale {
-    /// Create a new Locale object with the defaults
-    /// cc: "world", lc: None.
-    pub fn new() -> Self {
-        Self::default()
-    }
-
-    /// Set the country code.
-    pub fn country(mut self, cc: &str) -> Self {
-        self.cc = String::from(cc);
-        self
-    }
-
-    /// Set or clear the language code.
-    pub fn language(mut self, lc: Option<&str>) -> Self {
-        self.lc = lc.map(|s| String::from(s));
-        self
+    /// Create a new Locale object with the given country code and optional language code.
+    pub fn new(cc: &str, lc: Option<&str>) -> Self {
+        Self {
+            cc: String::from(cc),
+            lc: lc.map(|s| String::from(s))
+        }
     }
 }
 
 /// General output parameters. Not all API methods support all parameters.
 /// None values indicate that the parameter will be excluded from
-/// the query parameters list.
+/// the query parameters.
+///
+/// # Constructors
+///
+/// There is only the `default()` construtor to build an empty output object:
+///
+/// ```ignore
+/// let output = Locale::default();
+/// ```
+/// Output objects are better created using the struct update syntax:
+///
+/// ```ignore
+/// let output = Output {
+///     locale: Some(Locale::new("fr", None)),
+///     page: Some(1),
+///     ..Output::default()
+/// }
+/// ```
 #[derive(Debug, Default)]
 pub struct Output {
-    pub(crate) locale: Option<Locale>,
-    pub(crate) page: Option<usize>,
-    pub(crate) page_size: Option<usize>,
-    pub(crate)fields: Option<String>,
-    pub(crate) no_cache: Option<bool>
+    pub locale: Option<Locale>,
+    pub page: Option<usize>,
+    pub page_size: Option<usize>,
+    pub fields: Option<String>,
+    pub nocache: Option<bool>
 }
 
 impl Output {
-    /// Create a new Output object with defaults (all fields None).
-    pub fn new() -> Self {
-        Self::default()
-    }
-
-    /// Set or clear the locale.
-    pub fn locale(mut self, value: Option<Locale>) -> Self {
-        self.locale = value;
-        self
-    }
-
-    /// Set or clear the current page.
-    pub fn page(mut self, value: Option<usize>) -> Self {
-        self.page = value;
-        self
-    }
-
-    /// Set or clear the page size.
-    pub fn page_size(mut self, value: Option<usize>) -> Self {
-        self.page_size = value;
-        self
-    }
-
-    /// Set or clear the fields list. A comma-separated list of field names.
-    /// Some("") is equivalent to None.
-    pub fn fields(mut self, value: Option<&str>) -> Self {
-        self.fields = value.and_then(|s| if s.is_empty() { None } else { Some(s.to_string()) });
-        self
-    }
-
-    /// Set of clear the no cache flag. Note that the values `Some(false)`
-    /// and `None` would produce different results. The former would produce
-    /// the query parameter `nocache=false` while the later would produce no
-    /// query parameter.
-    pub fn no_cache(mut self, value: Option<bool>) -> Self {
-        self.no_cache = value;
-        self
+    /// Return an array of pairs ("name", "value") denoting query parameters.
+    ///
+    /// # Arguments
+    ///
+    /// * names - A sequence of parameter names. These match the names of the
+    ///     fields in the Output structure (i.e. "page" refers to the `Output::page`)
+    ///     field).
+    ///
+    /// Note that:
+    ///
+    /// * The `locale` field is ignored.
+    /// * Fields with value `None` are ignored.
+    /// * Callers should only request the parameters that are supported by the target
+    ///   API call.
+    /// * Repeated names are ignored.
+    pub fn params<'a>(&self, names: &[&'a str]) -> Vec<(&'a str, String)> {
+        let mut added: Vec<&str> = Vec::new();
+        let mut params: Vec<(&str, String)> = Vec::new();
+        for name in names {
+            if !added.contains(name) {
+                let value = match *name {
+                    "page" => self.page.map(|v| v.to_string()),
+                    "page_size" => self.page_size.map(|v| v.to_string()),
+                    "fields" => self.fields.clone(),
+                    "nocache" => self.nocache.map(|v| v.to_string()),
+                    _ => None
+                };
+                if let Some(v) = value {
+                    params.push((name, v));
+                    added.push(name);
+                }
+            }
+        }
+        params
     }
 }
 
@@ -127,39 +149,33 @@ mod tests_locale {
 
     #[test]
     fn default() {
-        let locale = Locale::new();
+        let locale = Locale::default();
         assert_eq!(locale.cc, String::from("world"));
         assert_eq!(locale.lc, None);
     }
 
     #[test]
     fn country() {
-        let locale = Locale::new().country("fr");
+        let locale = Locale::new("fr", None);
         assert_eq!(locale.cc, String::from("fr"));
         assert_eq!(locale.lc, None);
     }
 
     #[test]
-    fn language() {
-        let locale = Locale::new().language(Some("fr"));
-        assert_eq!(locale.cc, String::from("world"));
-        assert_eq!(locale.lc, Some(String::from("fr")));
-    }
-
-    #[test]
-    fn options() {
-        let mut locale = Locale::new().country("fr").language(Some("ca"));
+    fn country_language() {
+        let locale = Locale::new("fr", Some("ca"));
         assert_eq!(locale.cc, String::from("fr"));
         assert_eq!(locale.lc, Some(String::from("ca")));
 
-        locale = locale.language(None);
-        assert_eq!(locale.lc, None);
     }
 
     #[test]
     fn to_string() {
-        let locale = Locale::new().country("fr").language(Some("ca"));
-        assert_eq!(locale.to_string(), String::from("fr-ca"));
+        let locale_cc = Locale::new("fr", None);
+        assert_eq!(locale_cc.to_string(), String::from("fr"));
+
+        let locale_cc_lc = Locale::new("fr", Some("ca"));
+        assert_eq!(locale_cc_lc.to_string(), String::from("fr-ca"));
     }
 
     #[test]
@@ -172,7 +188,8 @@ mod tests_locale {
         assert_eq!(locale_2.cc, String::from("fr"));
         assert_eq!(locale_2.lc, Some(String::from("ca")));
 
-         let locale_3 = Locale::from_str("fr_ca").unwrap();
+        // Malformed strings are interpreted as (invalid) country codes.
+        let locale_3 = Locale::from_str("fr_ca").unwrap();
         assert_eq!(locale_3.cc, String::from("fr_ca"));
         assert_eq!(locale_3.lc, None);
     }
@@ -185,60 +202,25 @@ mod tests_output {
 
     #[test]
     fn default() {
-        let output = Output::new();
+        let output = Output::default();
         assert_eq!(output.locale, None);
         assert_eq!(output.page, None);
         assert_eq!(output.page_size, None);
         assert_eq!(output.fields, None);
-        assert_eq!(output.no_cache, None);
+        assert_eq!(output.nocache, None);
     }
 
     #[test]
-    fn locale() {
-        let mut output = Output::new().locale(Some(Locale::new()));
-        assert_eq!(output.locale, Some(Locale::new()));
-
-        output = output.locale(None);
-        assert_eq!(output.locale, None);
-    }
-
-    #[test]
-    fn pagination() {
-        let mut output = Output::new().page(Some(0));
-        assert_eq!(output.page, Some(0));
-        assert_eq!(output.page_size, None);
-
-        output = output.page_size(Some(20));
-        assert_eq!(output.page, Some(0));
-        assert_eq!(output.page_size, Some(20));
-
-        output = output.page(None);
-        assert_eq!(output.page, None);
-        assert_eq!(output.page_size, Some(20));
-
-        output = output.page_size(None);
-        assert_eq!(output.page, None);
-        assert_eq!(output.page_size, None);
-    }
-
-    #[test]
-    fn fields() {
-        let mut output = Output::new().fields(Some(""));
-        assert_eq!(output.fields, None);
-
-        output = output.fields(Some("a,b,c"));
-        assert_eq!(output.fields, Some(String::from("a,b,c")));
-
-        output = output.fields(None);
-        assert_eq!(output.fields, None);
-    }
-
-    #[test]
-    fn no_cache() {
-        let mut output = Output::new().no_cache(Some(true));
-        assert_eq!(output.no_cache, Some(true));
-
-        output = output.no_cache(None);
-        assert_eq!(output.no_cache, None);
+    fn params() {
+        let output = Output {
+            page: Some(1),
+            page_size: Some(20),
+            ..Output::default()
+        };
+        let params = output.params(&["page", "page_size"]);
+        assert_eq!(&params, &[
+            ("page", 1.to_string()),
+            ("page_size", 20.to_string())
+        ]);
     }
 }

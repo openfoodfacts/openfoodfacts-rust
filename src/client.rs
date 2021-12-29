@@ -90,7 +90,7 @@ impl OffClient {
     ///     - states
     /// (*) Only taxomomy. There is no facet equivalent.
     pub fn taxonomy(&self, taxonomy: &str) -> OffResult {
-        let base_url = self.base_url(Some(Locale::default()))?;   // force world locale.
+        let base_url = self.base_url_world()?;   // force world locale.
         let url = base_url.join(&format!("data/taxonomies/{}.json", taxonomy))?;
         let response = self.client.get(url).send()?;
         Ok(response)
@@ -115,7 +115,7 @@ impl OffClient {
     /// * output - Optional output parameters. This call only supports the locale
     ///     parameter.
     pub fn facet(&self, facet: &str, output: Option<Output>) -> OffResult {
-        let base_url = self.base_url(output.and_then(|o| o.locale))?;
+        let base_url = self.base_url(&output)?;
         let url = base_url.join(&format!("{}.json", facet))?;
         let response = self.client.get(url).send()?;
         Ok(response)
@@ -131,7 +131,7 @@ impl OffClient {
     ///
     /// Categories support only the locale "world".
     pub fn categories(&self) -> OffResult {
-        let base_url = self.base_url(Some(Locale::default()))?;   // force world locale.
+        let base_url = self.base_url_world()?;
         let url = base_url.join("categories.json")?;
         let response = self.client.get(url).send()?;
         Ok(response)
@@ -149,11 +149,11 @@ impl OffClient {
     ///
     /// * `category`- The category name.
     /// * output - Optional output parameters. This call only supports the locale
-    ///     and paginazion parameters.
+    ///     and pagination parameters.
     pub fn products_by_category(&self, category: &str, output: Option<Output>) -> OffResult {
-        let base_url = self.base_url(output.and_then(|o| o.locale))?;
+        // let params = output.as_ref().map_or(Vec::new(), |o| o.params(&["page", "page_size"]));
+        let base_url = self.base_url(&output)?;
         let url = base_url.join(&format!("category/{}.json", category))?;
-        // TODO: add query params
         let response = self.client.get(url).send()?;
         Ok(response)
     }
@@ -172,7 +172,7 @@ impl OffClient {
     /// * output - Optional output parameters. This call only supports the locale
     ///     and paginazion parameters.
     pub fn products_with_additive(&self, additive: &str, output: Option<Output>) -> OffResult {
-        let base_url = self.base_url(output.and_then(|o| o.locale))?;
+        let base_url = self.base_url(&output)?;
         let url = base_url.join(&format!("additive/{}.json", additive))?;
         // TODO: Add query params
         let response = self.client.get(url).send()?;
@@ -193,7 +193,7 @@ impl OffClient {
     /// * output - Optional output parameters. This call only supports the locale
     ///     and paginazion parameters.
     pub fn products_in_state(&self, state: &str, output: Option<Output>) -> OffResult {
-        let base_url = self.base_url(output.and_then(|o| o.locale))?;
+        let base_url = self.base_url(&output)?;
         let url = base_url.join(&format!("state/{}.json", state))?;
         // TODO: Add query params
         let response = self.client.get(url).send()?;
@@ -221,7 +221,7 @@ impl OffClient {
     /// * output - Optional output parameters. This call only supports the locale
     ///     and fields parameters.
     pub fn product_by_barcode(&self, barcode: &str, output: Option<Output>) -> OffResult {
-        let api_url = self.api_url(output.and_then(|o| o.locale))?;
+        let api_url = self.api_url(&output)?;
         let url = api_url.join(&format!("product/{}", barcode))?;
         // TODO: Add query params
         let response = self.client.get(url).send()?;
@@ -248,7 +248,7 @@ impl OffClient {
     /// * output - Optional output parameters. This call only supports the locale
     ///     and pagination parameters. TODO: Verify
     pub fn product_nutrients(&self, barcode: &str, output: Option<Output>) -> OffResult {
-        let api_url = self.base_url(output.and_then(|o| o.locale))?;
+        let api_url = self.base_url(&output)?;
         let url = api_url.join("cgi/nutrients.pl")?;
         let response = self.client.get(url).query(&[
                 ("code", barcode),
@@ -286,7 +286,7 @@ impl OffClient {
     ///     and fields parameters. TODO: Also pagination ?
     ///
     pub fn search_by_barcode(&self, barcodes: &str, fields: Option<&str>, output: Option<Output>) -> OffResult {
-        let api_url = self.api_url(output.and_then(|o| o.locale))?;
+        let api_url = self.api_url(&output)?;
         let url = api_url.join("search")?;
         let response = self.client.get(url).query(&[
             ("code", barcodes),
@@ -318,23 +318,38 @@ impl OffClient {
     //   Ok(response)
     // }
 
-    /// Return the base URL with the given locale.
-    fn base_url(&self, locale: Option<Locale>) -> Result<Url, ParseError> {
-        let url = format!("https://{}.openfoodfacts.org/",
-                          locale.map_or(self.locale.to_string(), |l| l.to_string()));
-        Url::parse(&url)
+    // Return the base URL with the locale given in Output::locale. If Output is None
+    // or Output::locale is None, use the client's default locale.
+    fn base_url(&self, output: &Option<Output>) -> Result<Url, ParseError> {
+        // output.as_ref() -> Option<&Output>
+        // o.locale.as_ref() -> Option<&Locale>
+        self.base_url_locale(&(output.as_ref().and_then(|o| o.locale.as_ref())))
     }
 
-    /// Return the API URL with the given locale.
-    fn api_url(&self, locale: Option<Locale>) -> Result<Url, ParseError> {
-        let base = self.base_url(locale)?;
+    // Return the base URL with the "world" locale.
+    fn base_url_world(&self) -> Result<Url, ParseError> {
+        // &Some(&Locale::default()) -> &Option<&Locale>
+        self.base_url_locale(&Some(&Locale::default()))
+    }
+
+    // Return the API URL with the locale given in Output::locale.
+    fn api_url(&self, output: &Option<Output>) -> Result<Url, ParseError> {
+        let base = self.base_url(output)?;
         base.join(&format!("api/{}/", self.version))
     }
 
-    /// Return the search URL with the given locale.
-    fn search_url(&self, locale: Option<Locale>) -> Result<Url, ParseError> {
-        let base = self.base_url(locale)?;
+    // Return the search URL with the locale given in Output::locale.
+    fn search_url(&self, output: &Option<Output>) -> Result<Url, ParseError> {
+        let base = self.base_url(output)?;
         base.join("cgi/search.pl")
+    }
+
+    // Return the base URL with the given locale. If locale is None, return the
+    // client's default locale.
+    fn base_url_locale(&self, locale: &Option<&Locale>) -> Result<Url, ParseError> {
+        let url = format!("https://{}.openfoodfacts.org/",
+                          locale.map_or(self.locale.to_string(), |l| l.to_string()));
+        Url::parse(&url)
     }
 }
 
@@ -364,32 +379,54 @@ mod tests_client {
     #[test]
     fn base_url_default() {
         let off = Off::new(ApiVersion::V0).build().unwrap();
-        assert_eq!(off.base_url(None).unwrap().as_str(),
+        assert_eq!(off.base_url(&None).unwrap().as_str(),
                     "https://world.openfoodfacts.org/");
     }
 
     #[test]
     fn base_url_locale() {
         let off = Off::new(ApiVersion::V0).build().unwrap();
-        assert_eq!(off.base_url(Some(Locale::new().country("gr"))).unwrap().as_str(),
+        let output = Output {
+            locale: Some(Locale::new("gr", None)),
+            ..Output::default()
+        };
+        assert_eq!(off.base_url(&Some(output)).unwrap().as_str(),
                     "https://gr.openfoodfacts.org/");
+    }
+
+    #[test]
+    fn base_url_world() {
+        let off = Off::new(ApiVersion::V0).locale(Locale::new("gr", None))
+                                          .build().unwrap();
+        assert_eq!(off.base_url_world().unwrap().as_str(),
+                    "https://world.openfoodfacts.org/");
+
     }
 
     #[test]
     fn api_url() {
         let off_v0 = Off::new(ApiVersion::V0).build().unwrap();
-        assert_eq!(off_v0.api_url(None).unwrap().as_str(),
+
+        assert_eq!(off_v0.api_url(&None).unwrap().as_str(),
                     "https://world.openfoodfacts.org/api/v0/");
 
         let off_v2 = Off::new(ApiVersion::V2).build().unwrap();
-        assert_eq!(off_v2.api_url(None).unwrap().as_str(),
-                    "https://world.openfoodfacts.org/api/v2/");
-        }
+        let output = Output {
+            locale: Some(Locale::new("gr", None)),
+            ..Output::default()
+        };
+        assert_eq!(off_v2.api_url(&Some(output)).unwrap().as_str(),
+                    "https://gr.openfoodfacts.org/api/v2/");
+    }
 
     #[test]
     fn client_search_url() {
         let off = Off::new(ApiVersion::V0).build().unwrap();
-        assert_eq!(off.search_url(Some(Locale::new().country("gr"))).unwrap().as_str(),
+        let output = Output {
+            locale: Some(Locale::new("gr", None)),
+            ..Output::default()
+        };
+        assert_eq!(off.search_url(&Some(output)).unwrap().as_str(),
                     "https://gr.openfoodfacts.org/cgi/search.pl");
     }
 }

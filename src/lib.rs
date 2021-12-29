@@ -125,10 +125,10 @@ mod tests {
     #[test]
     fn options() {
         let builder = Off::new(ApiVersion::V0)
-            .locale(Locale::new().country("gr"))
+            .locale(Locale::new("gr", None))
             .auth("user", "pwd")
             .user_agent("user agent");
-        assert_eq!(builder.locale, Locale::new().country("gr"));
+        assert_eq!(builder.locale, Locale::new("gr", None));
         assert_eq!(builder.auth,
                    Some(Auth(String::from("user"), String::from("pwd"))));
         assert_eq!(builder.user_agent, Some(String::from("user agent")));
