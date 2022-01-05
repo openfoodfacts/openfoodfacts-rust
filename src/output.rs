@@ -101,7 +101,7 @@ pub struct Output {
     pub locale: Option<Locale>,
     pub page: Option<usize>,
     pub page_size: Option<usize>,
-    pub fields: Option<String>,
+    pub fields: Option<&'static str>,
     pub nocache: Option<bool>
 }
 
@@ -129,7 +129,7 @@ impl Output {
                 let value = match *name {
                     "page" => self.page.map(|v| v.to_string()),
                     "page_size" => self.page_size.map(|v| v.to_string()),
-                    "fields" => self.fields.clone(),
+                    "fields" => self.fields.map(|v| v.to_string()),
                     "nocache" => self.nocache.map(|v| v.to_string()),
                     _ => None
                 };

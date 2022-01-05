@@ -92,8 +92,7 @@ impl OffClient {
     pub fn taxonomy(&self, taxonomy: &str) -> OffResult {
         let base_url = self.base_url_world()?;   // force world locale.
         let url = base_url.join(&format!("data/taxonomies/{}.json", taxonomy))?;
-        let response = self.client.get(url).send()?;
-        Ok(response)
+        self.get(url, &[], &None)
     }
 
     /// Get the given facet.
@@ -117,8 +116,7 @@ impl OffClient {
     pub fn facet(&self, facet: &str, output: Option<Output>) -> OffResult {
         let base_url = self.base_url(&output)?;
         let url = base_url.join(&format!("{}.json", facet))?;
-        let response = self.client.get(url).send()?;
-        Ok(response)
+        self.get(url, &[], &None)
     }
 
     /// Get all the categories.
@@ -133,8 +131,7 @@ impl OffClient {
     pub fn categories(&self) -> OffResult {
         let base_url = self.base_url_world()?;
         let url = base_url.join("categories.json")?;
-        let response = self.client.get(url).send()?;
-        Ok(response)
+        self.get(url, &[], &None)
     }
 
     /// Get all products belonging to the given category.
@@ -151,11 +148,9 @@ impl OffClient {
     /// * output - Optional output parameters. This call only supports the locale
     ///     and pagination parameters.
     pub fn products_by_category(&self, category: &str, output: Option<Output>) -> OffResult {
-        // let params = output.as_ref().map_or(Vec::new(), |o| o.params(&["page", "page_size"]));
         let base_url = self.base_url(&output)?;
         let url = base_url.join(&format!("category/{}.json", category))?;
-        let response = self.client.get(url).send()?;
-        Ok(response)
+        self.get(url, &["page", "page_size"], &output)
     }
 
     /// Get all products containing the given additive.
@@ -170,13 +165,11 @@ impl OffClient {
     ///
     /// * `additive`- The additive name.
     /// * output - Optional output parameters. This call only supports the locale
-    ///     and paginazion parameters.
+    ///     and pagination parameters.
     pub fn products_with_additive(&self, additive: &str, output: Option<Output>) -> OffResult {
         let base_url = self.base_url(&output)?;
         let url = base_url.join(&format!("additive/{}.json", additive))?;
-        // TODO: Add query params
-        let response = self.client.get(url).send()?;
-        Ok(response)
+        self.get(url, &["page", "page_size"], &output)
     }
 
     /// Get all products in the given state.
@@ -191,13 +184,11 @@ impl OffClient {
     ///
     /// * `state`- The state name.
     /// * output - Optional output parameters. This call only supports the locale
-    ///     and paginazion parameters.
+    ///     and pagination parameters.
     pub fn products_in_state(&self, state: &str, output: Option<Output>) -> OffResult {
         let base_url = self.base_url(&output)?;
         let url = base_url.join(&format!("state/{}.json", state))?;
-        // TODO: Add query params
-        let response = self.client.get(url).send()?;
-        Ok(response)
+        self.get(url, &["page", "page_size"], &output)
     }
 
     // ------------------------------------------------------------------------
@@ -223,9 +214,7 @@ impl OffClient {
     pub fn product_by_barcode(&self, barcode: &str, output: Option<Output>) -> OffResult {
         let api_url = self.api_url(&output)?;
         let url = api_url.join(&format!("product/{}", barcode))?;
-        // TODO: Add query params
-        let response = self.client.get(url).send()?;
-        Ok(response)
+        self.get(url, &["fields"], &output)
     }
 
     /// Get the nutrients of the given product.
@@ -250,6 +239,7 @@ impl OffClient {
     pub fn product_nutrients(&self, barcode: &str, output: Option<Output>) -> OffResult {
         let api_url = self.base_url(&output)?;
         let url = api_url.join("cgi/nutrients.pl")?;
+        // TODO
         let response = self.client.get(url).query(&[
                 ("code", barcode),
                 ("id", "ingredients_fr"),
@@ -269,6 +259,7 @@ impl OffClient {
     // Search
     // ------------------------------------------------------------------------
 
+    // TODO: V2 ?
     /// Search products by barcode.
     ///
     /// # OFF API request
@@ -318,6 +309,7 @@ impl OffClient {
     //   Ok(response)
     // }
 
+    // TODO: Pass the option by ref but copying the locale object inside ?
     // Return the base URL with the locale given in Output::locale. If Output is None
     // or Output::locale is None, use the client's default locale.
     fn base_url(&self, output: &Option<Output>) -> Result<Url, ParseError> {
@@ -350,6 +342,13 @@ impl OffClient {
         let url = format!("https://{}.openfoodfacts.org/",
                           locale.map_or(self.locale.to_string(), |l| l.to_string()));
         Url::parse(&url)
+    }
+
+    // Build and send a GET request.
+    fn get(&self, url: Url, names: &[&str], output: &Option<Output>) -> OffResult {
+        let params = output.as_ref().map_or(Vec::new(), |o| o.params(names));
+        let response = self.client.get(url).query(&params).send()?;
+        Ok(response)
     }
 }
 

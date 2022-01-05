@@ -1,11 +1,8 @@
-// Integration tests using API v1. Note that all integration tests are ignored
-// by default.
+// Integration tests using API v1.
 use reqwest::StatusCode;
 use openfoodfacts::{Off, ApiVersion, Output, Locale};
 
-
 #[test]
-#[ignore]
 fn taxonomy() {
     let off = Off::new(ApiVersion::V0).build().unwrap();
     let response = off.taxonomy("nova_groups").unwrap();
@@ -15,9 +12,7 @@ fn taxonomy() {
     assert_eq!(response.status().is_success(), true);
 }
 
-
 #[test]
-#[ignore]
 fn taxonomy_not_found() {
     let off = Off::new(ApiVersion::V0).build().unwrap();
     let response = off.taxonomy("not_found").unwrap();
@@ -27,24 +22,29 @@ fn taxonomy_not_found() {
     assert_eq!(response.status(), StatusCode::NOT_FOUND);
 }
 
-
 #[test]
-#[ignore]
 fn facet() {
     let off = Off::new(ApiVersion::V0).build().unwrap();
-    let output = Output {
-        locale: Some(Locale::new("gr", None)),
-        ..Output::default()
-    };
-    let response = off.facet("brands", Some(output)).unwrap();
+    let response = off.facet("brands", None).unwrap();
 
-    assert_eq!(response.url().as_str(), "https://gr.openfoodfacts.org/brands.json");
+    assert_eq!(response.url().as_str(), "https://world.openfoodfacts.org/brands.json");
     assert_eq!(response.status().is_success(), true);
 }
 
+#[test]
+fn facet_params() {
+    // Only supports the locale parameter.
+    let off = Off::new(ApiVersion::V0).build().unwrap();
+    let output = Output {
+        locale: Some(Locale::new("gr", None)),
+        page: Some(22),
+        ..Output::default()
+    };
+    let response = off.facet("brands", Some(output)).unwrap();
+    assert_eq!(response.url().as_str(), "https://gr.openfoodfacts.org/brands.json");
+}
 
 #[test]
-#[ignore]
 fn categories() {
     let off = Off::new(ApiVersion::V0).build().unwrap();
     let response = off.categories().unwrap();
@@ -53,9 +53,7 @@ fn categories() {
     assert_eq!(response.status().is_success(), true);
 }
 
-
 #[test]
-#[ignore]
 fn products_by_category() {
     let off = Off::new(ApiVersion::V0).build().unwrap();
     let response = off.products_by_category("cheeses", None).unwrap();
@@ -64,9 +62,25 @@ fn products_by_category() {
     assert_eq!(response.status().is_success(), true);
 }
 
+#[test]
+#[ignore]   // TODO: Fix it. The response.url does not contain the query params.
+fn products_by_category_params() {
+    // Only supports the locale and pagination parameters.
+    let off = Off::new(ApiVersion::V0).build().unwrap();
+    let output = Output {
+        locale: Some(Locale::new("fr", Some("ca"))),
+        page: Some(22),
+        page_size: Some(20),
+        fields: Some("a,b"),
+        ..Output::default()
+    };
+    let response = off.products_by_category("cheeses", Some(output)).unwrap();
+
+    assert_eq!(response.url().as_str(), "https://fr-ca.openfoodfacts.org/category/cheeses.json?page=22&page_size=20");
+    assert_eq!(response.status().is_success(), true);
+}
 
 #[test]
-#[ignore]
 fn products_with_additive() {
     let off = Off::new(ApiVersion::V0).build().unwrap();
     let response = off.products_with_additive("e322-lecithins", None).unwrap();
@@ -75,7 +89,23 @@ fn products_with_additive() {
 }
 
 #[test]
-#[ignore]
+#[ignore]   // TODO: Fix it. The response.url does not contain the query params.
+fn products_with_additive_params() {
+    // Only supports the locale and pagination parameters.
+    let off = Off::new(ApiVersion::V0).build().unwrap();
+    let output = Output {
+        locale: Some(Locale::new("fr", Some("ca"))),
+        page: Some(22),
+        page_size: Some(20),
+        fields: Some("a,b"),
+        ..Output::default()
+    };
+    let response = off.products_with_additive("e322-lecithins", Some(output)).unwrap();
+    assert_eq!(response.url().as_str(), "https://fr-ca.openfoodfacts.org/additive/e322-lecithins.json?page=22&page_size=20");
+    assert_eq!(response.status().is_success(), true);
+}
+
+#[test]
 fn products_in_state() {
     let off = Off::new(ApiVersion::V0).build().unwrap();
     let response = off.products_in_state("empty", None).unwrap();
@@ -84,9 +114,25 @@ fn products_in_state() {
     assert_eq!(response.status().is_success(), true);
 }
 
+#[test]
+#[ignore]   // TODO: Fix it. The response.url does not contain the query params.
+fn products_in_state_params() {
+    // Only supports the locale and pagination parameters.
+    let off = Off::new(ApiVersion::V0).build().unwrap();
+    let output = Output {
+        locale: Some(Locale::new("fr", Some("ca"))),
+        page: Some(22),
+        page_size: Some(20),
+        fields: Some("a,b"),
+        ..Output::default()
+    };
+    let response = off.products_in_state("empty", Some(output)).unwrap();
+
+    assert_eq!(response.url().as_str(), "https://world.openfoodfacts.org/state/empty.json?page=22&page_size=20");
+    assert_eq!(response.status().is_success(), true);
+}
 
 #[test]
-#[ignore]
 fn product_by_barcode() {
     let off = Off::new(ApiVersion::V0).build().unwrap();
     let response = off.product_by_barcode("069000019832", None).unwrap();  // Diet Pepsi
@@ -95,6 +141,23 @@ fn product_by_barcode() {
     assert_eq!(response.status().is_success(), true);
 }
 
+#[test]
+#[ignore]   // TODO: Fix it. The response.url does not contain the query params.
+fn product_by_barcode_params() {
+    // Only supports the locale and fields parameters.
+    let off = Off::new(ApiVersion::V0).build().unwrap();
+    let output = Output {
+        locale: Some(Locale::new("fr", Some("ca"))),
+        page: Some(22),
+        page_size: Some(20),
+        fields: Some("a,b"),
+        ..Output::default()
+    };
+    let response = off.product_by_barcode("069000019832", Some(output)).unwrap();  // Diet Pepsi
+
+    assert_eq!(response.url().as_str(), "https://world.openfoodfacts.org/api/v0/product/069000019832?fields=a,b");
+    assert_eq!(response.status().is_success(), true);
+}
 
 // Use/keep as example.
 //
