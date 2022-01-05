@@ -101,9 +101,11 @@ pub struct Output {
     pub locale: Option<Locale>,
     pub page: Option<usize>,
     pub page_size: Option<usize>,
-    pub fields: Option<String>,
+    pub fields: Option<&'static str>,
     pub nocache: Option<bool>
 }
+
+pub type Params<'a> = Vec<(&'a str, String)>;
 
 impl Output {
     /// Return an array of pairs ("name", "value") denoting query parameters.
@@ -116,20 +118,20 @@ impl Output {
     ///
     /// Note that:
     ///
-    /// * The `locale` field is ignored.
+    /// * The `locale` name is ignored.
     /// * Fields with value `None` are ignored.
+    /// * Repeated names are ignored.
     /// * Callers should only request the parameters that are supported by the target
     ///   API call.
-    /// * Repeated names are ignored.
-    pub fn params<'a>(&self, names: &[&'a str]) -> Vec<(&'a str, String)> {
+    pub fn params<'a>(&self, names: &[&'a str]) -> Params<'a> {
         let mut added: Vec<&str> = Vec::new();
-        let mut params: Vec<(&str, String)> = Vec::new();
+        let mut params: Params = Vec::new();
         for name in names {
             if !added.contains(name) {
                 let value = match *name {
                     "page" => self.page.map(|v| v.to_string()),
                     "page_size" => self.page_size.map(|v| v.to_string()),
-                    "fields" => self.fields.clone(),
+                    "fields" => self.fields.map(|v| v.to_string()),
                     "nocache" => self.nocache.map(|v| v.to_string()),
                     _ => None
                 };
