@@ -5,7 +5,6 @@ use reqwest::blocking::{Client, Response};
 use url::{Url, ParseError};
 
 use crate::output::{Locale, Output, Params};
-use crate::search::Query;
 
 /// Supported API versions.
 ///
@@ -22,8 +21,8 @@ pub enum ApiVersion {
 impl Display for ApiVersion {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         let version = match self {
-            ApiVersion::V0 => "v0",
-            ApiVersion::V2 => "v2"
+            Self::V0 => "v0",
+            Self::V2 => "v2"
         };
         write!(f, "{}", version)
     }
@@ -35,8 +34,8 @@ impl FromStr for ApiVersion {
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         debug_assert!(s.len() > 0);
         match s {
-            "v0" => { Ok(ApiVersion::V0) },
-            "v2" => { Ok(ApiVersion::V2) },
+            "v0" => { Ok(Self::V0) },
+            "v2" => { Ok(Self::V2) },
             _    => { Err(fmt::Error) }
         }
     }
@@ -259,9 +258,9 @@ impl OffClient {
     }
 
     /// Search using filters.
-    pub fn search(&self, query: Query) {
+    /*pub fn search(&self, query: SearchV0) {
         // TODO
-    }
+    }*/
 
     // TODO: Serialization
     // Option 1
@@ -278,7 +277,6 @@ impl OffClient {
     //   Ok(response)
     // }
 
-    // TODO: Pass the option by ref but copying the locale object inside ?
     // Return the base URL with the locale given in Output::locale. If Output is None
     // or Output::locale is None, use the client's default locale.
     fn base_url(&self, locale: Option<&Locale>) -> Result<Url, ParseError> {
