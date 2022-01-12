@@ -5,6 +5,7 @@ use reqwest::blocking::{Client, Response};
 use url::{Url, ParseError};
 
 use crate::output::{Locale, Output, Params};
+use crate::search::{SearchV0};
 
 /// Supported API versions.
 ///
@@ -162,8 +163,8 @@ impl OffClient {
     /// * output - Optional output parameter. This call supports only the locale
     ///   parameter.
     pub fn nutrients(&self, output: Option<Output>) -> OffResult {
-        let base_url = self.base_url(output.as_ref().map_or(None, |o| o.locale.as_ref()))?;
-        let url = base_url.join("cgi/nutrients.pl")?;
+        let cgi_url = self.cgi_url(output.as_ref().map_or(None, |o| o.locale.as_ref()))?;
+        let url = cgi_url.join("nutrients.pl")?;
         self.get(url, None)
     }
 
@@ -176,15 +177,15 @@ impl OffClient {
     ///
     /// # Arguments
     ///
-    /// * what - A facet name or "category". The facet name is always the singular name of the face type
-    ///     name (i.e. brands -> brand, entry-dates -> entry-date, etc). The facet name or the "category"
-    ///     literal may be given in english or localized, i.e. additives (world), additifs (fr),
-    ///     category (world), categorie (fr).
-    /// * id - The localized id of the facet or category. The IDs are returned by calls to the corresponding
-    ///     `facet(<facet_type>)` or `categories()` endpoint. For example, the IDs for the `entry-date` facet
-    ///     are returned by the call `facet("entry-dates")`.
-    /// * output - Optional output parameters. This call supports the locale
-    ///     pagination and fields parameters.
+    /// * what - A facet name or "category". The facet name is always the singular name
+    ///     of the face type name (i.e. brands -> brand, entry-dates -> entry-date, etc).
+    ///     The facet name or the "category" literal may be given either in english or
+    ///     localized, i.e. additives (world), additifs (fr), category (world), categorie (fr).
+    /// * id - The localized id of the facet or category. The IDs are returned by calls
+    ///     to the corresponding `facet(<facet_type>)` or `categories()` endpoint. For example,
+    ///     the IDs for the `entry-date` facet are returned by the call `facet("entry-dates")`.
+    /// * output - Optional output parameters. This call supports the locale, pagination
+    ///     and fields parameters.
     pub fn products_by(&self, what: &str, id: &str, output: Option<Output>) -> OffResult {
         let base_url = self.base_url(output.as_ref().map_or(None, |o| o.locale.as_ref()))?;
         let url = base_url.join(&format!("{}/{}.json", what, id))?;
@@ -226,7 +227,7 @@ impl OffClient {
     // Search
     // ------------------------------------------------------------------------
 
-    // TODO: V2 ?
+    // TODO: V2 only ?
     /// Search products by barcode.
     ///
     /// # OFF API request
@@ -243,24 +244,29 @@ impl OffClient {
     /// * output - Optional output parameters. This call only supports the locale
     ///     and fields parameters. TODO: Also pagination ?
     ///
-    pub fn search_by_barcode(&self, barcodes: &str, fields: Option<&str>, output: Option<Output>) -> OffResult {
+    pub fn search_by_barcode(&self, barcodes: &str, output: Option<Output>) -> OffResult {
         // Borrow output and extract Option<&Locale>
         let api_url = self.api_url(output.as_ref().map_or(None, |o| o.locale.as_ref()))?;
         let url = api_url.join("search")?;
-        let response = self.client.get(url).query(&[
-            ("code", barcodes),
-            ("fields", match fields {
-                Some("*") | None => "",
-                _ => fields.unwrap()
-            })
-        ]).send()?;
-        Ok(response)
+        let mut params = Params::new();
+        params.push(("code", String::from(barcodes)));
+        if let Some(output_params) = output.map(|o| o.params(&["fields"])) {
+            params.extend(output_params);
+        }
+        self.get(url, Some(&params))
     }
 
-    /// Search using filters.
-    /*pub fn search(&self, query: SearchV0) {
-        // TODO
-    }*/
+    // TODO: Old search. There are new search endpoints in V2
+    // TODO: which output parameter are supported ?
+    pub fn search(&self, search: SearchV0, output: Option<Output>) -> OffResult {
+        let cgi_url = self.cgi_url(output.as_ref().map_or(None, |o| o.locale.as_ref()))?;
+        let url = cgi_url.join("search.pl")?;
+        let mut params = search.params();
+        if let Some(output_params) = output.map(|o| o.params(&["fields"])) {
+            params.extend(output_params);
+        }
+        self.get(url, Some(&params))
+    }
 
     // TODO: Serialization
     // Option 1
@@ -294,10 +300,10 @@ impl OffClient {
         base.join(&format!("api/{}/", self.version))
     }
 
-    // Return the search URL with the locale given in Output::locale.
-    fn search_url(&self, locale: Option<&Locale>) -> Result<Url, ParseError> {
+    // Return the CGI URL with the locale given in Output::locale.
+    fn cgi_url(&self, locale: Option<&Locale>) -> Result<Url, ParseError> {
         let base = self.base_url(locale)?;
-        base.join("cgi/search.pl")
+        base.join("cgi/")
     }
 
     // Return the base URL with the given locale. If locale is None, return the
@@ -378,9 +384,9 @@ mod tests_client {
     }
 
     #[test]
-    fn client_search_url() {
+    fn client_cgi_url() {
         let off = Off::new(ApiVersion::V0).build().unwrap();
-        assert_eq!(off.search_url(Some(&Locale::new("gr", None))).unwrap().as_str(),
-                    "https://gr.openfoodfacts.org/cgi/search.pl");
+        assert_eq!(off.cgi_url(Some(&Locale::new("gr", None))).unwrap().as_str(),
+                    "https://gr.openfoodfacts.org/cgi/");
     }
 }

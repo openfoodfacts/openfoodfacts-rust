@@ -1,12 +1,9 @@
-use std::collections::HashMap;
 use std::fmt::{self, Display, Formatter};
 use std::vec::Vec;
 
 use crate::output::Params;
 
-
 /// Sorting criteria
-/// TODO: Move to Output or to Search ?
 #[derive(Debug)]
 pub enum SortBy {
     Popularity,
@@ -27,12 +24,6 @@ impl Display for SortBy {
     }
 }
 
-/// The value of a search parameter
-enum Value {
-    String(String),
-    Number(u32),
-}
-
 /// Search parameters for V0.
 ///
 /// # Examples
@@ -46,9 +37,34 @@ enum Value {
 /// ```
 /// TODO: Rename as Filters ?
 pub struct SearchV0 {
-    params: HashMap<String, Value>,
+    params: Vec<(String, Value)>,
     criteria_index: u32,
-    nutriment_index: u32
+    nutriment_index: u32,
+    sort_by: Option<SortBy>
+}
+
+// The value of a search parameter
+enum Value {
+    String(String),
+    Number(u32),
+}
+
+impl From<&str> for Value {
+    fn from(value: &str) -> Self {
+        Self::String(value.to_string())
+    }
+}
+
+impl From<String> for Value {
+    fn from(value: String) -> Self {
+        Self::String(value)
+    }
+}
+
+impl From<u32> for Value {
+    fn from(value: u32) -> Self {
+        Self::Number(value)
+    }
 }
 
 // TODO: Use refs for strings ?
@@ -56,9 +72,10 @@ impl SearchV0 {
     /// Create a new, empty search parameters.
     pub fn new() -> Self {
         Self {
-            params: HashMap::new(),
+            params: Vec::new(),
             criteria_index: 0,
-            nutriment_index: 0
+            nutriment_index: 0,
+            sort_by: None
         }
     }
 
@@ -79,13 +96,9 @@ impl SearchV0 {
     /// * value - The searched criteria value.
     pub fn criteria(&mut self, criteria: &str, op: &str, value: &str) -> &mut Self {
         self.criteria_index += 1;
-        self.params.insert(format!("tagtype_{}", self.criteria_index),
-                            Value::String(String::from(criteria)));
-        self.params.insert(format!("tag_contains_{}", self.criteria_index),
-                            Value::String(String::from(op)));
-        self.params.insert(format!("tag_{}", self.criteria_index),
-                            Value::String(String::from(value)));
-        self.criteria_index += 1;
+        self.params.push((format!("tagtype_{}", self.criteria_index), Value::from(criteria)));
+        self.params.push((format!("tag_contains_{}", self.criteria_index), Value::from(op)));
+        self.params.push((format!("tag_{}", self.criteria_index), Value::from(value)));
         self
     }
 
@@ -108,11 +121,13 @@ impl SearchV0 {
     /// are converted to "with_additives", "without_additives" and "indifferent_additives"
     /// respectively.
     pub fn ingredient(&mut self, ingredient: &str, value: &str) -> &mut Self {
-        self.params.insert(String::from(ingredient),
-                            Value::String(match ingredient {
-                                "additives" => format!("{}_additives", value),
-                                _ => String::from(value)
-                            }));
+        self.params.push((
+            String::from(ingredient),
+            match ingredient {
+                "additives" => Value::from(format!("{}_additives", value)),
+                _ => Value::from(value)
+            }
+        ));
         self
     }
 
@@ -133,28 +148,33 @@ impl SearchV0 {
     /// * value - The value to compare.
     pub fn nutriment(&mut self, nutriment: &str, op: &str, value: u32) -> &mut Self {
         self.nutriment_index += 1;
-        self.params.insert(format!("nutriment_{}", self.nutriment_index),
-                            Value::String(String::from(nutriment)));
-        self.params.insert(format!("nutriment_compare_{}", self.nutriment_index),
-                            Value::String(String::from(op)));
-        self.params.insert(format!("nutriment_value_{}", self.nutriment_index),
-                            Value::Number(value));
-        self.nutriment_index += 1;
+        self.params.push((format!("nutriment_{}", self.nutriment_index), Value::from(nutriment)));
+        self.params.push((format!("nutriment_compare_{}", self.nutriment_index), Value::from(op)));
+        self.params.push((format!("nutriment_value_{}", self.nutriment_index), Value::from(value)));
         self
     }
 
-    pub fn params<'a>(&self) -> Params<'a> {
-        let mut added: Vec<&str> = Vec::new();
+    /// Set/clear the sorting order.
+    pub fn sort_by(&mut self, sort_by: Option<SortBy>) -> &mut Self {
+        self.sort_by = sort_by;
+        self
+    }
+
+    pub fn params(&self) -> Params {
+        let mut added: Vec<&str> = Vec::new();  // Vec<T = &str>
         let mut params: Params = Vec::new();
-        for (name, value) in &(self.params) {
+        for (name, value) in &self.params {
             if !added.contains(&name.as_str()) {
                 let v = match value {
-                    Value::String(s) => *s,
+                    Value::String(s) => s.clone(),
                     Value::Number(n) => n.to_string()
                 };
                 params.push((&name, v));
                 added.push(&name);
             }
+        }
+        if let Some(ref s) = self.sort_by {
+            params.push(("sort_by", s.to_string()));
         }
         // Adds the 'action' and 'json' parameter. TODO: Should be done in client::search() ?
         params.push(("action", String::from("process")));
@@ -193,22 +213,22 @@ mod tests_search {
 
         let params = search.params();
         assert_eq!(&params, &[
-            ("tagtype_1", "brands"),
-            ("tag_contains_1", "contains"),
-            ("tag_1", "Nestlé"),
-            ("tagtype_2", "categories"),
-            ("tag_contains_2", "does_not_contain"),
-            ("tag_2", "cheese"),
-            ("additives", "without_additives"),
-            ("ingredients_that_may_be_from_palm_oil", "indifferent"),
-            ("nutriment_1", "fiber"),
-            ("nutriment_compare_1", "lt"),
-            ("nutriment_value_1", "500"),
-            ("nutriment_2", "salt"),
-            ("nutriment_compare_2", "gt"),
-            ("nutriment_value_2", "100"),
-            ("action", "process"),
-            ("json", "true")
+            ("tagtype_1", String::from("brands")),
+            ("tag_contains_1", String::from("contains")),
+            ("tag_1", String::from("Nestlé")),
+            ("tagtype_2", String::from("categories")),
+            ("tag_contains_2", String::from("does_not_contain")),
+            ("tag_2", String::from("cheese")),
+            ("additives", String::from("without_additives")),
+            ("ingredients_that_may_be_from_palm_oil", String::from("indifferent")),
+            ("nutriment_1", String::from("fiber")),
+            ("nutriment_compare_1", String::from("lt")),
+            ("nutriment_value_1", String::from("500")),
+            ("nutriment_2", String::from("salt")),
+            ("nutriment_compare_2", String::from("gt")),
+            ("nutriment_value_2", String::from("100")),
+            ("action", String::from("process")),
+            ("json", String::from("true"))
         ]);
     }
 

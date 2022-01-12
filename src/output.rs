@@ -221,8 +221,8 @@ mod tests_output {
         };
         let params = output.params(&["page", "page_size"]);
         assert_eq!(&params, &[
-            ("page", 1.to_string()),
-            ("page_size", 20.to_string())
+            ("page", String::from("1")),
+            ("page_size", String::from("20"))
         ]);
     }
 }
