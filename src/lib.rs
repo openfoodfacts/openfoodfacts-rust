@@ -5,9 +5,12 @@ use reqwest::header;
 mod client;
 mod output;
 mod search;
+mod types;
 
-pub use crate::client::{ApiVersion, OffClient, OffResult};
+pub use crate::client::{OffClient, OffResult};
 pub use crate::output::{Output, Locale};
+pub use crate::search::Search;
+pub use crate::types::ApiVersion;
 
 // The version of this library.
 pub const VERSION: &str = "alpha";

@@ -2,6 +2,7 @@ use std::convert::Infallible;
 use std::fmt::{self, Display, Formatter};
 use std::str::FromStr;
 use std::vec::Vec;
+use crate::types::{Params};
 
 /// Locale. A country code (`cc`) and an optional
 /// language code (`lc`).
@@ -104,8 +105,6 @@ pub struct Output {
     pub fields: Option<&'static str>,
     pub nocache: Option<bool>
 }
-
-pub type Params<'a> = Vec<(&'a str, String)>;
 
 impl Output {
     /// Return an array of pairs ("name", "value") denoting query parameters.

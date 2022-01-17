@@ -1,46 +1,11 @@
-use std::error::Error;
-use std::fmt::{self, Display, Formatter};
 use std::str::FromStr;
 use reqwest::blocking::{Client, Response};
 use url::{Url, ParseError};
 
-use crate::output::{Locale, Output, Params};
-use crate::search::{SearchV0};
+use crate::output::{Locale, Output};
+use crate::search::SearchParams;
+use crate::types::{ApiVersion, Params};
 
-/// Supported API versions.
-///
-/// ApiVersion::to_string() produces the API version string "v{version number}".
-/// ApiVersion::from(string) produces the corresponding ApiVersion enum value
-/// from a string "v{version number}". Returns `fmt::Error` if the version number
-/// is invalid.
-#[derive(Debug, PartialEq)]
-pub enum ApiVersion {
-    V0,
-    V2
-}
-
-impl Display for ApiVersion {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        let version = match self {
-            Self::V0 => "v0",
-            Self::V2 => "v2"
-        };
-        write!(f, "{}", version)
-    }
-}
-
-impl FromStr for ApiVersion {
-    type Err = fmt::Error;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        debug_assert!(s.len() > 0);
-        match s {
-            "v0" => { Ok(Self::V0) },
-            "v2" => { Ok(Self::V2) },
-            _    => { Err(fmt::Error) }
-        }
-    }
-}
 
 /// The OFF API client, created using the Off builder.
 ///
@@ -59,7 +24,7 @@ pub struct OffClient {
 }
 
 /// The return type of all OffClient methods.
-pub type OffResult = Result<Response, Box<dyn Error>>;
+pub type OffResult = Result<Response, Box<dyn std::error::Error>>;
 
 impl OffClient {
     // Notes:
@@ -258,7 +223,7 @@ impl OffClient {
 
     // TODO: Old search. There are new search endpoints in V2
     // TODO: which output parameter are supported ?
-    pub fn search(&self, search: SearchV0, output: Option<Output>) -> OffResult {
+    pub fn search(&self, search: impl SearchParams, output: Option<Output>) -> OffResult {
         let cgi_url = self.cgi_url(output.as_ref().map_or(None, |o| o.locale.as_ref()))?;
         let url = cgi_url.join("search.pl")?;
         let mut params = search.params();
@@ -339,7 +304,7 @@ mod tests_api_version {
     fn from_str() {
         assert_eq!(ApiVersion::from_str("v0").unwrap(), ApiVersion::V0);
         assert_eq!(ApiVersion::from_str("v2").unwrap(), ApiVersion::V2);
-        assert_eq!(ApiVersion::from_str("v666").unwrap_err(), fmt::Error);
+        assert_eq!(ApiVersion::from_str("v666").unwrap_err(), std::fmt::Error);
     }
 }
 

@@ -1,7 +1,5 @@
 use std::fmt::{self, Display, Formatter};
-use std::vec::Vec;
-
-use crate::output::Params;
+use crate::types::{ApiVersion, Params};
 
 /// Sorting criteria
 #[derive(Debug)]
@@ -24,26 +22,28 @@ impl Display for SortBy {
     }
 }
 
-/// Search parameters for V0.
-///
-/// # Examples
-///
-/// ```ignore
-/// let query = Query::new()
-///     .criteria("categories", "contains", "cereals")
-///     .criteria("label", "contains", "kosher")
-///     .ingredient("additives", "without"),
-///     .nutriment("energy", "lt", 500);
-/// ```
-/// TODO: Rename as Filters ?
-pub struct SearchV0 {
-    params: Vec<(String, Value)>,
-    criteria_index: u32,
-    nutriment_index: u32,
-    sort_by: Option<SortBy>
+/// Implemented by Search objects.
+pub trait SearchParams {
+    fn params(&self) -> Params;
 }
 
-// The value of a search parameter
+/// The search query builder. Produces an object implementing the trait SearchParams
+/// that can be passed to OffClient::search(). The constructor expects the ApiVersion
+/// number, used to select which implementation to return.
+pub struct Search;
+
+impl Search {
+    pub fn new(version: ApiVersion) -> impl SearchParams {
+        match version {
+            ApiVersion::V0 => SearchParamsV0::new(),
+            _ => panic!("Not implemented")
+            // TODO: ApiVersion::V2 => SearchParamsV2::new(),
+        }
+    }
+}
+
+
+// The internal representation of a search parameter value.
 enum Value {
     String(String),
     Number(u32),
@@ -67,8 +67,27 @@ impl From<u32> for Value {
     }
 }
 
+/// Search parameters for V0.
+///
+/// # Examples
+///
+/// ```ignore
+/// let query = Query::new()
+///     .criteria("categories", "contains", "cereals")
+///     .criteria("label", "contains", "kosher")
+///     .ingredient("additives", "without"),
+///     .nutriment("energy", "lt", 500);
+/// ```
+/// TODO: Rename as Filters ?
+pub struct SearchParamsV0 {
+    params: Vec<(String, Value)>,
+    criteria_index: u32,
+    nutriment_index: u32,
+    sort_by: Option<SortBy>
+}
+
 // TODO: Use refs for strings ?
-impl SearchV0 {
+impl SearchParamsV0 {
     /// Create a new, empty search parameters.
     pub fn new() -> Self {
         Self {
@@ -159,8 +178,10 @@ impl SearchV0 {
         self.sort_by = sort_by;
         self
     }
+}
 
-    pub fn params(&self) -> Params {
+impl SearchParams for SearchParamsV0 {
+    fn params(&self) -> Params {
         let mut added: Vec<&str> = Vec::new();  // Vec<T = &str>
         let mut params: Params = Vec::new();
         for (name, value) in &self.params {
@@ -183,6 +204,20 @@ impl SearchV0 {
     }
 }
 
+pub struct SearchParamsV2;
+
+impl SearchParamsV2 {
+    pub fn new() -> Self {
+        SearchParamsV2 {}
+    }
+}
+
+impl SearchParams for SearchParamsV2 {
+    fn params(&self) -> Params {
+        Params::new()
+    }
+}
+
 #[cfg(test)]
 mod tests_sort_by {
     use super::*;
@@ -202,7 +237,7 @@ mod tests_search {
 
     #[test]
     fn search_params() {
-        let mut search = SearchV0::new();
+        let mut search = SearchParamsV0::new();
         search.criteria("brands", "contains", "Nestlé")
               .criteria("categories", "does_not_contain", "cheese")
               .ingredient("additives", "without")
