@@ -269,6 +269,13 @@ impl SearchParamsV2 {
     /// ```ignore
     /// <nutrient>_<unit>=<value>
     /// ```
+    ///
+    /// if `op` is "=", otherwise produces a non-valued parameter
+    ///
+    /// ```ignore
+    /// <nutient>_<unit><op><value>
+    /// ```
+    ///
     /// # Arguments
     ///
     /// * nutrient - The nutrient name. See the [`API docs`].
