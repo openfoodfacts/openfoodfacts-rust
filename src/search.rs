@@ -47,6 +47,7 @@ impl Search {
 enum Value {
     String(String),
     Number(u32),
+    None
 }
 
 impl From<&str> for Value {
@@ -67,7 +68,11 @@ impl From<u32> for Value {
     }
 }
 
-/// Search parameters for V0.
+// ----------------------------------------------------------------------------
+// Search V0
+// ----------------------------------------------------------------------------
+
+/// Search parameters.
 ///
 /// # Examples
 ///
@@ -76,13 +81,13 @@ impl From<u32> for Value {
 ///     .criteria("categories", "contains", "cereals")
 ///     .criteria("label", "contains", "kosher")
 ///     .ingredient("additives", "without"),
-///     .nutriment("energy", "lt", 500);
+///     .nutrient("energy", "lt", 500);
 /// ```
 /// TODO: Rename as Filters ?
 pub struct SearchParamsV0 {
     params: Vec<(String, Value)>,
     criteria_index: u32,
-    nutriment_index: u32,
+    nutrient_index: u32,
     sort_by: Option<SortBy>
 }
 
@@ -93,7 +98,7 @@ impl SearchParamsV0 {
         Self {
             params: Vec::new(),
             criteria_index: 0,
-            nutriment_index: 0,
+            nutrient_index: 0,
             sort_by: None
         }
     }
@@ -103,16 +108,18 @@ impl SearchParamsV0 {
     /// Produces a triplet of pairs
     ///
     /// ```ignore
-    /// tagtype_N=<name>
+    /// tagtype_N=<criteria>
     /// tag_contains_N=<op>
     /// tag_N=<value>
     /// ```
     ///
     /// # Arguments
     ///
-    /// * name - A valid criteria name. See openfoodfacts API docs.
+    /// * criteria - A valid criteria name. See the [`API docs`].
     /// * op - One of "contains" or "does_not_contain".
     /// * value - The searched criteria value.
+    ///
+    /// [`API docs`]: https://openfoodfacts.github.io/api-documentation/#5Filtering
     pub fn criteria(&mut self, criteria: &str, op: &str, value: &str) -> &mut Self {
         self.criteria_index += 1;
         self.params.push((format!("tagtype_{}", self.criteria_index), Value::from(criteria)));
@@ -125,7 +132,7 @@ impl SearchParamsV0 {
     ///
     /// Produces a pair
     ///
-    /// `<name>=<value>`
+    /// `<ingredient>=<value>`
     ///
     /// # Arguments
     ///
@@ -150,26 +157,28 @@ impl SearchParamsV0 {
         self
     }
 
-    /// Define a nutriment search parameters.
+    /// Define a nutrient (a.k.a nutriment in the API docs) search parameters.
     ///
     /// Produces a triplet of pairs
     ///
     /// ```ignore
-    /// nutriment_N=<name>
+    /// nutriment_N=<nutriment>
     /// nutriment_compare_N=<op>
     /// nutriment_value_N=<quantity>
     /// ```
     /// # Arguments
     ///
-    /// * nutriment - The nutriment name. See the openfoodfacts API docs.
+    /// * nutrient - The nutrient name. See the [`API docs`].
     /// * op - The comparation operation to perform. One of "lt", "lte", "gt", "gte",
     ///        "eq".
     /// * value - The value to compare.
-    pub fn nutriment(&mut self, nutriment: &str, op: &str, value: u32) -> &mut Self {
-        self.nutriment_index += 1;
-        self.params.push((format!("nutriment_{}", self.nutriment_index), Value::from(nutriment)));
-        self.params.push((format!("nutriment_compare_{}", self.nutriment_index), Value::from(op)));
-        self.params.push((format!("nutriment_value_{}", self.nutriment_index), Value::from(value)));
+    ///
+    /// [`API docs`]: https://openfoodfacts.github.io/api-documentation/#5Filtering
+    pub fn nutrient(&mut self, nutriment: &str, op: &str, value: u32) -> &mut Self {
+        self.nutrient_index += 1;
+        self.params.push((format!("nutriment_{}", self.nutrient_index), Value::from(nutriment)));
+        self.params.push((format!("nutriment_compare_{}", self.nutrient_index), Value::from(op)));
+        self.params.push((format!("nutriment_value_{}", self.nutrient_index), Value::from(value)));
         self
     }
 
@@ -182,17 +191,14 @@ impl SearchParamsV0 {
 
 impl SearchParams for SearchParamsV0 {
     fn params(&self) -> Params {
-        let mut added: Vec<&str> = Vec::new();  // Vec<T = &str>
         let mut params: Params = Vec::new();
         for (name, value) in &self.params {
-            if !added.contains(&name.as_str()) {
-                let v = match value {
-                    Value::String(s) => s.clone(),
-                    Value::Number(n) => n.to_string()
-                };
-                params.push((&name, v));
-                added.push(&name);
-            }
+            let v = match value {
+                Value::String(s) => s.clone(),
+                Value::Number(n) => n.to_string(),
+                Value::None => { continue; }
+            };
+            params.push((&name, v));
         }
         if let Some(ref s) = self.sort_by {
             params.push(("sort_by", s.to_string()));
@@ -204,17 +210,121 @@ impl SearchParams for SearchParamsV0 {
     }
 }
 
-pub struct SearchParamsV2;
+// ----------------------------------------------------------------------------
+// Search V2
+// ----------------------------------------------------------------------------
+
+pub struct SearchParamsV2 {
+    params: Vec<(String, Value)>,
+    sort_by: Option<SortBy>
+}
 
 impl SearchParamsV2 {
     pub fn new() -> Self {
-        SearchParamsV2 {}
+        SearchParamsV2 {
+            params: Vec::new(),
+            sort_by: None
+        }
+    }
+
+    /// Define a criteria query parameter.
+    ///
+    /// Produces pairs
+    ///
+    /// ```ignore
+    /// <criteria>_tags=<value>
+    /// ```
+    ///
+    /// or
+    ///
+    /// ```ignore
+    /// <criteria>_tags_<lc>= <value>
+    /// ```
+    ///
+    /// if a language code has been given.
+    ///
+    /// # Arguments
+    ///
+    /// * criteria - A valid criteria name. See the [`API docs`].
+    /// * value - The criteria value. Use comma for AND, colon for OR and tilde for NOT.
+    ///     See the [`Search V2 API docs`].
+    /// * lc: Optional language code.
+    ///
+    /// [`openfoodfacts API docs`]: https://openfoodfacts.github.io/api-documentation/#5Filtering
+    /// [`Search V2 API docs`]: https://wiki.openfoodfacts.org/Open_Food_Facts_Search_API_Version_2
+    pub fn criteria(&mut self, criteria: &str, value: &str, lc: Option<&str>) -> &mut Self {
+        if let Some(lc) = lc {
+            self.params.push((format!("{}_tags_{}", criteria, lc), Value::from(value)));
+        }
+        else {
+            self.params.push((format!("{}_tags", criteria), Value::from(value)));
+        }
+        self
+    }
+
+    /// Define a condition on a nutrient.
+    ///
+    /// Produces a pair
+    ///
+    /// ```ignore
+    /// <nutrient>_<unit>=<value>
+    /// ```
+    /// # Arguments
+    ///
+    /// * nutrient - The nutrient name. See the [`API docs`].
+    /// * unit - One of the "100g" or "serving".
+    /// * op - A comparison operator. One of  '=', '<', '>', `<=', '=>`.
+    ///     See the [`Search V2 API docs`].
+    /// * value - The value to compare.
+    ///
+    /// TODO: Verify the <= and => operators.
+    ///
+    /// [`API docs`]: https://openfoodfacts.github.io/api-documentation/#5Filtering
+    /// [`Search V2 API docs`]: https://wiki.openfoodfacts.org/Open_Food_Facts_Search_API_Version_2
+    pub fn nutrient(&mut self, nutrient: &str, unit: &str, op: &str, value: u32) -> &mut Self {
+        let param = match  op {
+            "=" => (format!("{}_{}", nutrient, unit), Value::from(value)),
+            // The name and value becomes the param name. TODO: Check HTTP specs if <, >, etc supported
+            // in query params in place of =.
+            _ => (format!("{}_{}{}{}", nutrient, unit, op, value), Value::None)
+        };
+        self.params.push(param);
+        self
+    }
+
+    /// Convenience method to add a nutrient condition per 100 grams.
+    pub fn nutrient_100g(&mut self, nutrient: &str, op: &str, value: u32) -> &mut Self {
+        self.nutrient(nutrient, "100g", op, value)
+    }
+
+    /// Convenience method to add a nutrient condition per serving.
+    pub fn nutrient_serving(&mut self, nutrient: &str, op: &str, value: u32) -> &mut Self {
+        self.nutrient(nutrient, "serving", op, value)
+    }
+
+    /// TODO: Supported ?
+    /// Set/clear the sorting order.
+    pub fn sort_by(&mut self, sort_by: Option<SortBy>) -> &mut Self {
+        self.sort_by = sort_by;
+        self
     }
 }
 
 impl SearchParams for SearchParamsV2 {
     fn params(&self) -> Params {
-        Params::new()
+        let mut params: Params = Vec::new();
+        for (name, value) in &self.params {
+            let v = match value {
+                Value::String(s) => s.clone(),
+                Value::Number(n) => n.to_string(),
+                Value::None => String::new()    // The empty string
+            };
+            params.push((&name, v));
+        }
+        if let Some(ref s) = self.sort_by {
+            params.push(("sort_by", s.to_string()));
+        }
+        params
     }
 }
 
@@ -232,7 +342,7 @@ mod tests_sort_by {
 }
 
 #[cfg(test)]
-mod tests_search {
+mod tests_search_v0 {
     use super::*;
 
     #[test]
@@ -242,8 +352,8 @@ mod tests_search {
               .criteria("categories", "does_not_contain", "cheese")
               .ingredient("additives", "without")
               .ingredient("ingredients_that_may_be_from_palm_oil", "indifferent")
-              .nutriment("fiber", "lt", 500)
-              .nutriment("salt", "gt", 100);
+              .nutrient("fiber", "lt", 500)
+              .nutrient("salt", "gt", 100);
 
 
         let params = search.params();
@@ -266,34 +376,34 @@ mod tests_search {
             ("json", String::from("true"))
         ]);
     }
+}
 
-    /*
+
+#[cfg(test)]
+mod tests_search_v2 {
+    use super::*;
+
     #[test]
-    fn search() {
-        // Get a list of products by barcodes (v2 only). Supports locale and fields.
-        let output = Output {
-            locale: Some(Locale::new("fr", None)),
-            fields: Some("code,product_name"),
-            ..Output::default()
-        };
-        client.search(Query::products("p1,p2"), output);
+    fn search_params() {
+        let mut search = SearchParamsV2::new();
+        search.criteria("brands", "Nestlé", Some("fr"))
+              .criteria("categories", "-cheese", None)
+// TODO ?
+//              .ingredient("additives", "without")
+//              .ingredient("ingredients_that_may_be_from_palm_oil", "indifferent")
+              .nutrient_100g("fiber", "<", 500)
+              .nutrient_serving("salt", "=", 100);
 
-        // Search for French breakfast cereals with no additives nor palm oil and a great Nutriscore (A) (v0)
-        // Supports locale and sort,
-        client.search(Query::filter().criteria("categories", "contains", "breakfast_cereals")
-                                     .criteria("nutrition_grades", "contains", "A")
-                                     .ingredient("ingredients_from_palm_oil", "without")
-                                     .ingredient("additives", "without"), output);
 
-        // With sorting.
-        output.sort_by = Some(SortBy::Popularity);
-        client.search(Query::filter().criteria("categories", "contains", "breakfast_cereals")
-                                     .criteria("nutrition_grades", "contains", "A")
-                                     .ingredient("ingredients_from_palm_oil", "without")
-                                     .ingredient("additives", "without")
-                                     .nutriment("salt", "gt", 100), output);
-
-        // Search V2
+        let params = search.params();
+        assert_eq!(&params, &[
+            ("brands_tags_fr", String::from("Nestlé")),
+            ("categories_tags", String::from("-cheese")),
+// TODO
+//            ("additives", String::from("without_additives")),
+//            ("ingredients_that_may_be_from_palm_oil", String::from("indifferent")),
+            ("fiber_100g<500", String::new()),
+            ("salt_serving", String::from("100")),
+        ]);
     }
-    */
 }
