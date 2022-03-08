@@ -60,8 +60,8 @@ impl FromStr for Locale {
     type Err = Infallible;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        debug_assert!(s.len() > 0);
-        let mut split = s.split("-");
+        debug_assert!(!s.is_empty());
+        let mut split = s.split('-');
         let cc = split.next();
         let lc = split.next();
         Ok(Self::new(cc.unwrap(), lc))
@@ -73,7 +73,7 @@ impl Locale {
     pub fn new(cc: &str, lc: Option<&str>) -> Self {
         Self {
             cc: String::from(cc),
-            lc: lc.map(|s| String::from(s)),
+            lc: lc.map(String::from),
         }
     }
 }

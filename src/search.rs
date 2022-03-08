@@ -215,7 +215,7 @@ impl SearchParams for SearchParamsV0 {
                     continue;
                 }
             };
-            params.push((&name, v));
+            params.push((name, v));
         }
         if let Some(ref s) = self.sort_by {
             params.push(("sort_by", s.to_string()));
@@ -344,7 +344,7 @@ impl SearchParams for SearchParamsV2 {
                 Value::Number(n) => n.to_string(),
                 Value::None => String::new(), // The empty string
             };
-            params.push((&name, v));
+            params.push((name, v));
         }
         if let Some(ref s) = self.sort_by {
             params.push(("sort_by", s.to_string()));

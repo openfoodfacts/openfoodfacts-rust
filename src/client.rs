@@ -91,7 +91,7 @@ impl OffClient {
     ///     pagination, fields and nocache parameters.
     pub fn facet(&self, facet: &str, output: Option<Output>) -> OffResult {
         // Borrow output and extract Option<&Locale>
-        let base_url = self.base_url(output.as_ref().map_or(None, |o| o.locale.as_ref()))?;
+        let base_url = self.base_url(output.as_ref().and_then(|o| o.locale.as_ref()))?;
         let url = base_url.join(&format!("{}.json", facet))?;
         let params = output.map(|o| o.params(&["page", "page_size", "fields", "nocache"]));
         self.get(url, params.as_ref())
@@ -109,7 +109,7 @@ impl OffClient {
     ///
     /// * output - Optional output parameters. This call supports only the locale parameter.
     pub fn categories(&self, output: Option<Output>) -> OffResult {
-        let base_url = self.base_url(output.as_ref().map_or(None, |o| o.locale.as_ref()))?;
+        let base_url = self.base_url(output.as_ref().and_then(|o| o.locale.as_ref()))?;
         let url = base_url.join("categories.json")?;
         self.get(url, None)
     }
@@ -126,7 +126,7 @@ impl OffClient {
     /// * output - Optional output parameter. This call supports only the locale
     ///   parameter.
     pub fn nutrients(&self, output: Option<Output>) -> OffResult {
-        let cgi_url = self.cgi_url(output.as_ref().map_or(None, |o| o.locale.as_ref()))?;
+        let cgi_url = self.cgi_url(output.as_ref().and_then(|o| o.locale.as_ref()))?;
         let url = cgi_url.join("nutrients.pl")?;
         self.get(url, None)
     }
@@ -150,7 +150,7 @@ impl OffClient {
     /// * output - Optional output parameters. This call supports the locale, pagination
     ///     and fields parameters.
     pub fn products_by(&self, what: &str, id: &str, output: Option<Output>) -> OffResult {
-        let base_url = self.base_url(output.as_ref().map_or(None, |o| o.locale.as_ref()))?;
+        let base_url = self.base_url(output.as_ref().and_then(|o| o.locale.as_ref()))?;
         let url = base_url.join(&format!("{}/{}.json", what, id))?;
         let params = output.map(|o| o.params(&["page", "page_size", "fields"]));
         self.get(url, params.as_ref())
@@ -174,7 +174,7 @@ impl OffClient {
     /// * output - Optional output parameters. This call only supports the locale
     ///     and fields parameters.
     pub fn product(&self, barcode: &str, output: Option<Output>) -> OffResult {
-        let api_url = self.api_url(output.as_ref().map_or(None, |o| o.locale.as_ref()))?;
+        let api_url = self.api_url(output.as_ref().and_then(|o| o.locale.as_ref()))?;
         let url = api_url.join(&format!("product/{}", barcode))?;
         let params = output.map(|o| o.params(&["fields"]));
         self.get(url, params.as_ref())
@@ -209,7 +209,7 @@ impl OffClient {
     ///
     pub fn search_by_barcode(&self, barcodes: &str, output: Option<Output>) -> OffResult {
         // Borrow output and extract Option<&Locale>
-        let api_url = self.api_url(output.as_ref().map_or(None, |o| o.locale.as_ref()))?;
+        let api_url = self.api_url(output.as_ref().and_then(|o| o.locale.as_ref()))?;
         let url = api_url.join("search")?;
         let mut params = Params::new();
         params.push(("code", String::from(barcodes)));
@@ -222,7 +222,7 @@ impl OffClient {
     // TODO: Old search. There are new search endpoints in V2
     // TODO: which output parameter are supported ?
     pub fn search(&self, search: impl SearchParams, output: Option<Output>) -> OffResult {
-        let cgi_url = self.cgi_url(output.as_ref().map_or(None, |o| o.locale.as_ref()))?;
+        let cgi_url = self.cgi_url(output.as_ref().and_then(|o| o.locale.as_ref()))?;
         let url = cgi_url.join("search.pl")?;
         let mut params = search.params();
         if let Some(output_params) = output.map(|o| o.params(&["fields"])) {

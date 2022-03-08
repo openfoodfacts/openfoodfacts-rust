@@ -1,3 +1,4 @@
+#![allow(dead_code)]
 use reqwest::blocking::Client;
 use reqwest::header;
 use std::env::consts::OS;
@@ -52,7 +53,7 @@ impl Off {
     /// * version - The API version to use.
     pub fn new(version: ApiVersion) -> Self {
         Self {
-            version: version,
+            version,
             locale: Locale::default(),
             auth: None,
             // TODO: Get version and URL from somewhere else ?

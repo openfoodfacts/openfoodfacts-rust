@@ -33,7 +33,7 @@ impl FromStr for ApiVersion {
     type Err = fmt::Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        debug_assert!(s.len() > 0);
+        debug_assert!(!s.is_empty());
         match s {
             "v0" => Ok(Self::V0),
             "v2" => Ok(Self::V2),
