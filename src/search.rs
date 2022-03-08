@@ -1,4 +1,5 @@
 use std::fmt::{self, Display, Formatter};
+
 use crate::types::{ApiVersion, Params};
 
 /// Sorting criteria
@@ -7,7 +8,7 @@ pub enum SortBy {
     Popularity,
     ProductName,
     CreatedDate,
-    LastModifiedDate
+    LastModifiedDate,
 }
 
 impl Display for SortBy {
@@ -16,7 +17,7 @@ impl Display for SortBy {
             Self::Popularity => "unique_scans_n",
             Self::ProductName => "product_name",
             Self::CreatedDate => "created_t",
-            Self::LastModifiedDate => "last_modified_t"
+            Self::LastModifiedDate => "last_modified_t",
         };
         write!(f, "{}", sort)
     }
@@ -36,18 +37,16 @@ impl Search {
     pub fn new(version: ApiVersion) -> impl SearchParams {
         match version {
             ApiVersion::V0 => SearchParamsV0::new(),
-            _ => panic!("Not implemented")
-            // TODO: ApiVersion::V2 => SearchParamsV2::new(),
+            _ => panic!("Not implemented"), // TODO: ApiVersion::V2 => SearchParamsV2::new(),
         }
     }
 }
-
 
 // The internal representation of a search parameter value.
 enum Value {
     String(String),
     Number(u32),
-    None
+    None,
 }
 
 impl From<&str> for Value {
@@ -88,7 +87,7 @@ pub struct SearchParamsV0 {
     params: Vec<(String, Value)>,
     criteria_index: u32,
     nutrient_index: u32,
-    sort_by: Option<SortBy>
+    sort_by: Option<SortBy>,
 }
 
 // TODO: Use refs for strings ?
@@ -99,7 +98,7 @@ impl SearchParamsV0 {
             params: Vec::new(),
             criteria_index: 0,
             nutrient_index: 0,
-            sort_by: None
+            sort_by: None,
         }
     }
 
@@ -122,9 +121,16 @@ impl SearchParamsV0 {
     /// [`API docs`]: https://openfoodfacts.github.io/api-documentation/#5Filtering
     pub fn criteria(&mut self, criteria: &str, op: &str, value: &str) -> &mut Self {
         self.criteria_index += 1;
-        self.params.push((format!("tagtype_{}", self.criteria_index), Value::from(criteria)));
-        self.params.push((format!("tag_contains_{}", self.criteria_index), Value::from(op)));
-        self.params.push((format!("tag_{}", self.criteria_index), Value::from(value)));
+        self.params.push((
+            format!("tagtype_{}", self.criteria_index),
+            Value::from(criteria),
+        ));
+        self.params.push((
+            format!("tag_contains_{}", self.criteria_index),
+            Value::from(op),
+        ));
+        self.params
+            .push((format!("tag_{}", self.criteria_index), Value::from(value)));
         self
     }
 
@@ -151,8 +157,8 @@ impl SearchParamsV0 {
             String::from(ingredient),
             match ingredient {
                 "additives" => Value::from(format!("{}_additives", value)),
-                _ => Value::from(value)
-            }
+                _ => Value::from(value),
+            },
         ));
         self
     }
@@ -176,9 +182,18 @@ impl SearchParamsV0 {
     /// [`API docs`]: https://openfoodfacts.github.io/api-documentation/#5Filtering
     pub fn nutrient(&mut self, nutriment: &str, op: &str, value: u32) -> &mut Self {
         self.nutrient_index += 1;
-        self.params.push((format!("nutriment_{}", self.nutrient_index), Value::from(nutriment)));
-        self.params.push((format!("nutriment_compare_{}", self.nutrient_index), Value::from(op)));
-        self.params.push((format!("nutriment_value_{}", self.nutrient_index), Value::from(value)));
+        self.params.push((
+            format!("nutriment_{}", self.nutrient_index),
+            Value::from(nutriment),
+        ));
+        self.params.push((
+            format!("nutriment_compare_{}", self.nutrient_index),
+            Value::from(op),
+        ));
+        self.params.push((
+            format!("nutriment_value_{}", self.nutrient_index),
+            Value::from(value),
+        ));
         self
     }
 
@@ -196,7 +211,9 @@ impl SearchParams for SearchParamsV0 {
             let v = match value {
                 Value::String(s) => s.clone(),
                 Value::Number(n) => n.to_string(),
-                Value::None => { continue; }
+                Value::None => {
+                    continue;
+                }
             };
             params.push((&name, v));
         }
@@ -216,14 +233,14 @@ impl SearchParams for SearchParamsV0 {
 
 pub struct SearchParamsV2 {
     params: Vec<(String, Value)>,
-    sort_by: Option<SortBy>
+    sort_by: Option<SortBy>,
 }
 
 impl SearchParamsV2 {
     pub fn new() -> Self {
         SearchParamsV2 {
             params: Vec::new(),
-            sort_by: None
+            sort_by: None,
         }
     }
 
@@ -254,10 +271,11 @@ impl SearchParamsV2 {
     /// [`Search V2 API docs`]: https://wiki.openfoodfacts.org/Open_Food_Facts_Search_API_Version_2
     pub fn criteria(&mut self, criteria: &str, value: &str, lc: Option<&str>) -> &mut Self {
         if let Some(lc) = lc {
-            self.params.push((format!("{}_tags_{}", criteria, lc), Value::from(value)));
-        }
-        else {
-            self.params.push((format!("{}_tags", criteria), Value::from(value)));
+            self.params
+                .push((format!("{}_tags_{}", criteria, lc), Value::from(value)));
+        } else {
+            self.params
+                .push((format!("{}_tags", criteria), Value::from(value)));
         }
         self
     }
@@ -289,11 +307,11 @@ impl SearchParamsV2 {
     /// [`API docs`]: https://openfoodfacts.github.io/api-documentation/#5Filtering
     /// [`Search V2 API docs`]: https://wiki.openfoodfacts.org/Open_Food_Facts_Search_API_Version_2
     pub fn nutrient(&mut self, nutrient: &str, unit: &str, op: &str, value: u32) -> &mut Self {
-        let param = match  op {
+        let param = match op {
             "=" => (format!("{}_{}", nutrient, unit), Value::from(value)),
             // The name and value becomes the param name. TODO: Check HTTP specs if <, >, etc supported
             // in query params in place of =.
-            _ => (format!("{}_{}{}{}", nutrient, unit, op, value), Value::None)
+            _ => (format!("{}_{}{}{}", nutrient, unit, op, value), Value::None),
         };
         self.params.push(param);
         self
@@ -324,7 +342,7 @@ impl SearchParams for SearchParamsV2 {
             let v = match value {
                 Value::String(s) => s.clone(),
                 Value::Number(n) => n.to_string(),
-                Value::None => String::new()    // The empty string
+                Value::None => String::new(), // The empty string
             };
             params.push((&name, v));
         }
@@ -341,10 +359,19 @@ mod tests_sort_by {
 
     #[test]
     fn to_string() {
-        assert_eq!(SortBy::Popularity.to_string(), String::from("unique_scans_n"));
-        assert_eq!(SortBy::ProductName.to_string(), String::from("product_name"));
+        assert_eq!(
+            SortBy::Popularity.to_string(),
+            String::from("unique_scans_n")
+        );
+        assert_eq!(
+            SortBy::ProductName.to_string(),
+            String::from("product_name")
+        );
         assert_eq!(SortBy::CreatedDate.to_string(), String::from("created_t"));
-        assert_eq!(SortBy::LastModifiedDate.to_string(), String::from("last_modified_t"));
+        assert_eq!(
+            SortBy::LastModifiedDate.to_string(),
+            String::from("last_modified_t")
+        );
     }
 }
 
@@ -355,36 +382,41 @@ mod tests_search_v0 {
     #[test]
     fn search_params() {
         let mut search = SearchParamsV0::new();
-        search.criteria("brands", "contains", "Nestlé")
-              .criteria("categories", "does_not_contain", "cheese")
-              .ingredient("additives", "without")
-              .ingredient("ingredients_that_may_be_from_palm_oil", "indifferent")
-              .nutrient("fiber", "lt", 500)
-              .nutrient("salt", "gt", 100);
-
+        search
+            .criteria("brands", "contains", "Nestlé")
+            .criteria("categories", "does_not_contain", "cheese")
+            .ingredient("additives", "without")
+            .ingredient("ingredients_that_may_be_from_palm_oil", "indifferent")
+            .nutrient("fiber", "lt", 500)
+            .nutrient("salt", "gt", 100);
 
         let params = search.params();
-        assert_eq!(&params, &[
-            ("tagtype_1", String::from("brands")),
-            ("tag_contains_1", String::from("contains")),
-            ("tag_1", String::from("Nestlé")),
-            ("tagtype_2", String::from("categories")),
-            ("tag_contains_2", String::from("does_not_contain")),
-            ("tag_2", String::from("cheese")),
-            ("additives", String::from("without_additives")),
-            ("ingredients_that_may_be_from_palm_oil", String::from("indifferent")),
-            ("nutriment_1", String::from("fiber")),
-            ("nutriment_compare_1", String::from("lt")),
-            ("nutriment_value_1", String::from("500")),
-            ("nutriment_2", String::from("salt")),
-            ("nutriment_compare_2", String::from("gt")),
-            ("nutriment_value_2", String::from("100")),
-            ("action", String::from("process")),
-            ("json", String::from("true"))
-        ]);
+        assert_eq!(
+            &params,
+            &[
+                ("tagtype_1", String::from("brands")),
+                ("tag_contains_1", String::from("contains")),
+                ("tag_1", String::from("Nestlé")),
+                ("tagtype_2", String::from("categories")),
+                ("tag_contains_2", String::from("does_not_contain")),
+                ("tag_2", String::from("cheese")),
+                ("additives", String::from("without_additives")),
+                (
+                    "ingredients_that_may_be_from_palm_oil",
+                    String::from("indifferent")
+                ),
+                ("nutriment_1", String::from("fiber")),
+                ("nutriment_compare_1", String::from("lt")),
+                ("nutriment_value_1", String::from("500")),
+                ("nutriment_2", String::from("salt")),
+                ("nutriment_compare_2", String::from("gt")),
+                ("nutriment_value_2", String::from("100")),
+                ("action", String::from("process")),
+                ("json", String::from("true"))
+            ]
+        );
     }
 }
-
 
 #[cfg(test)]
 mod tests_search_v2 {
@@ -393,24 +425,27 @@ mod tests_search_v2 {
     #[test]
     fn search_params() {
         let mut search = SearchParamsV2::new();
-        search.criteria("brands", "Nestlé", Some("fr"))
-              .criteria("categories", "-cheese", None)
-// TODO ?
-//              .ingredient("additives", "without")
-//              .ingredient("ingredients_that_may_be_from_palm_oil", "indifferent")
-              .nutrient_100g("fiber", "<", 500)
-              .nutrient_serving("salt", "=", 100);
-
+        search
+            .criteria("brands", "Nestlé", Some("fr"))
+            .criteria("categories", "-cheese", None)
+            // TODO ?
+            //              .ingredient("additives", "without")
+            //              .ingredient("ingredients_that_may_be_from_palm_oil", "indifferent")
+            .nutrient_100g("fiber", "<", 500)
+            .nutrient_serving("salt", "=", 100);
 
         let params = search.params();
-        assert_eq!(&params, &[
-            ("brands_tags_fr", String::from("Nestlé")),
-            ("categories_tags", String::from("-cheese")),
-// TODO
-//            ("additives", String::from("without_additives")),
-//            ("ingredients_that_may_be_from_palm_oil", String::from("indifferent")),
-            ("fiber_100g<500", String::new()),
-            ("salt_serving", String::from("100")),
-        ]);
+        assert_eq!(
+            &params,
+            &[
+                ("brands_tags_fr", String::from("Nestlé")),
+                ("categories_tags", String::from("-cheese")),
+                // TODO
+                //            ("additives", String::from("without_additives")),
+                //            ("ingredients_that_may_be_from_palm_oil", String::from("indifferent")),
+                ("fiber_100g<500", String::new()),
+                ("salt_serving", String::from("100")),
+            ]
+        );
     }
 }

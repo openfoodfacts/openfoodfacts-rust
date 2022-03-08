@@ -2,7 +2,8 @@ use std::convert::Infallible;
 use std::fmt::{self, Display, Formatter};
 use std::str::FromStr;
 use std::vec::Vec;
-use crate::types::{Params};
+
+use crate::types::Params;
 
 /// Locale. A country code (`cc`) and an optional
 /// language code (`lc`).
@@ -36,7 +37,7 @@ use crate::types::{Params};
 #[derive(Debug, PartialEq)]
 pub struct Locale {
     pub cc: String,
-    pub lc: Option<String>
+    pub lc: Option<String>,
 }
 
 impl Default for Locale {
@@ -72,7 +73,7 @@ impl Locale {
     pub fn new(cc: &str, lc: Option<&str>) -> Self {
         Self {
             cc: String::from(cc),
-            lc: lc.map(|s| String::from(s))
+            lc: lc.map(|s| String::from(s)),
         }
     }
 }
@@ -103,7 +104,7 @@ pub struct Output {
     pub page: Option<usize>,
     pub page_size: Option<usize>,
     pub fields: Option<&'static str>,
-    pub nocache: Option<bool>
+    pub nocache: Option<bool>,
 }
 
 impl Output {
@@ -132,7 +133,7 @@ impl Output {
                     "page_size" => self.page_size.map(|v| v.to_string()),
                     "fields" => self.fields.map(|v| v.to_string()),
                     "nocache" => self.nocache.map(|v| v.to_string()),
-                    _ => None
+                    _ => None,
                 };
                 if let Some(v) = value {
                     params.push((name, v));
@@ -167,7 +168,6 @@ mod tests_locale {
         let locale = Locale::new("fr", Some("ca"));
         assert_eq!(locale.cc, String::from("fr"));
         assert_eq!(locale.lc, Some(String::from("ca")));
-
     }
 
     #[test]
@@ -196,7 +196,6 @@ mod tests_locale {
     }
 }
 
-
 #[cfg(test)]
 mod tests_output {
     use super::*;
@@ -219,9 +218,12 @@ mod tests_output {
             ..Output::default()
         };
         let params = output.params(&["page", "page_size"]);
-        assert_eq!(&params, &[
-            ("page", String::from("1")),
-            ("page_size", String::from("20"))
-        ]);
+        assert_eq!(
+            &params,
+            &[
+                ("page", String::from("1")),
+                ("page_size", String::from("20"))
+            ]
+        );
     }
 }
