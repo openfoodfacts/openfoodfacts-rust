@@ -76,7 +76,7 @@ impl From<u32> for Value {
 /// # Examples
 ///
 /// ```ignore
-/// let query = Query::new()
+/// let query = SearchParamsV0::new()
 ///     .criteria("categories", "contains", "cereals")
 ///     .criteria("label", "contains", "kosher")
 ///     .ingredient("additives", "without"),

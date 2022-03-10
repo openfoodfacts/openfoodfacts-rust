@@ -1,28 +1,41 @@
-use reqwest::blocking::{Client, Response};
+use reqwest::blocking::{Client as HttpClient, Response as HttpResponse};
 use url::{ParseError, Url};
 
 use crate::output::{Locale, Output};
 use crate::search::SearchParams;
 use crate::types::{ApiVersion, Params};
 
-/// The OFF API client, created using the Off builder.
-///
-/// All methods return a OffResult object.
-///
-/// The OffClient owns a reqwest::Client object. One single OffClient should
-/// be used per application.
+/// The return type of all OffClient methods.
+pub type OffResult = Result<HttpResponse, Box<dyn std::error::Error>>;
+
+// API version methods.
+trait VersionInfo {
+    fn version(&self) -> ApiVersion {
+        panic!("Not implemented");
+    }
+
+    fn api_url(&self, locale: Option<&Locale>) -> Result<Url, ParseError> {
+        panic!("Not implemented");
+    }
+
+    fn search_url(&self, locale: Option<&Locale>) -> Result<Url, ParseError> {
+        panic!("Not implemented");
+    }
+}
+
+// The OFF API client data.
+//
+// All methods return a OffResult object.
+//
+// The OffClient owns a reqwest::Client object. One single OffClient should
+// be used per application.
 #[derive(Debug)]
-pub struct OffClient {
-    // The API version.
-    pub(crate) version: ApiVersion,
+struct OffClient {
     // The default locale to use when no locale is given in a method call.
     pub(crate) locale: Locale,
     // The uderlying reqwest client. TODO: Make a ref ?
-    pub(crate) client: Client,
+    pub(crate) client: HttpClient,
 }
-
-/// The return type of all OffClient methods.
-pub type OffResult = Result<Response, Box<dyn std::error::Error>>;
 
 impl OffClient {
     // Notes:
@@ -58,7 +71,7 @@ impl OffClient {
     ///     - nutrient_levels (*)
     ///     - states
     /// (*) Only taxomomy. There is no facet equivalent.
-    pub fn taxonomy(&self, taxonomy: &str) -> OffResult {
+    fn taxonomy(&self, taxonomy: &str) -> OffResult {
         let base_url = self.base_url_world()?; // force world locale.
         let url = base_url.join(&format!("data/taxonomies/{}.json", taxonomy))?;
         self.get(url, None)
@@ -89,7 +102,7 @@ impl OffClient {
     ///     The name may be given in english or localized, i.e. additives (world), additifs (fr).
     /// * output - Optional output parameters. This call supports only the locale,
     ///     pagination, fields and nocache parameters.
-    pub fn facet(&self, facet: &str, output: Option<Output>) -> OffResult {
+    fn facet(&self, facet: &str, output: Option<Output>) -> OffResult {
         // Borrow output and extract Option<&Locale>
         let base_url = self.base_url(output.as_ref().and_then(|o| o.locale.as_ref()))?;
         let url = base_url.join(&format!("{}.json", facet))?;
@@ -108,7 +121,7 @@ impl OffClient {
     /// # Arguments
     ///
     /// * output - Optional output parameters. This call supports only the locale parameter.
-    pub fn categories(&self, output: Option<Output>) -> OffResult {
+    fn categories(&self, output: Option<Output>) -> OffResult {
         let base_url = self.base_url(output.as_ref().and_then(|o| o.locale.as_ref()))?;
         let url = base_url.join("categories.json")?;
         self.get(url, None)
@@ -125,7 +138,7 @@ impl OffClient {
     ///
     /// * output - Optional output parameter. This call supports only the locale
     ///   parameter.
-    pub fn nutrients(&self, output: Option<Output>) -> OffResult {
+    fn nutrients(&self, output: Option<Output>) -> OffResult {
         let cgi_url = self.cgi_url(output.as_ref().and_then(|o| o.locale.as_ref()))?;
         let url = cgi_url.join("nutrients.pl")?;
         self.get(url, None)
@@ -149,7 +162,7 @@ impl OffClient {
     ///     the IDs for the `entry-date` facet are returned by the call `facet("entry-dates")`.
     /// * output - Optional output parameters. This call supports the locale, pagination
     ///     and fields parameters.
-    pub fn products_by(&self, what: &str, id: &str, output: Option<Output>) -> OffResult {
+    fn products_by(&self, what: &str, id: &str, output: Option<Output>) -> OffResult {
         let base_url = self.base_url(output.as_ref().and_then(|o| o.locale.as_ref()))?;
         let url = base_url.join(&format!("{}/{}.json", what, id))?;
         let params = output.map(|o| o.params(&["page", "page_size", "fields"]));
@@ -173,7 +186,7 @@ impl OffClient {
     /// * barcode - The product barcode.
     /// * output - Optional output parameters. This call only supports the locale
     ///     and fields parameters.
-    pub fn product(&self, barcode: &str, output: Option<Output>) -> OffResult {
+    fn product(&self, barcode: &str, output: Option<Output>) -> OffResult {
         let api_url = self.api_url(output.as_ref().and_then(|o| o.locale.as_ref()))?;
         let url = api_url.join(&format!("product/{}", barcode))?;
         let params = output.map(|o| o.params(&["fields"]));
@@ -181,55 +194,23 @@ impl OffClient {
     }
 
     // ------------------------------------------------------------------------
-    // Write
-    // ------------------------------------------------------------------------
-
-    // TODO
-
-    // ------------------------------------------------------------------------
     // Search
     // ------------------------------------------------------------------------
 
-    // TODO: V2 only ?
-    /// Search products by barcode.
-    ///
-    /// # OFF API request
-    ///
-    /// ```ignore
-    /// GET https://{locale}.openfoodfacts.org/api/v0/search
-    /// ```
-    ///
-    /// See also `product_by_barcode()` above.
-    ///
-    /// # Arguments
-    ///
-    /// * `barcodes` - A string with comma-separated barcodes.
-    /// * output - Optional output parameters. This call only supports the locale
-    ///     and fields parameters. TODO: Also pagination ?
-    ///
-    pub fn search_by_barcode(&self, barcodes: &str, output: Option<Output>) -> OffResult {
-        // Borrow output and extract Option<&Locale>
-        let api_url = self.api_url(output.as_ref().and_then(|o| o.locale.as_ref()))?;
-        let url = api_url.join("search")?;
-        let mut params = Params::new();
-        params.push(("code", String::from(barcodes)));
-        if let Some(output_params) = output.map(|o| o.params(&["fields"])) {
-            params.extend(output_params);
-        }
-        self.get(url, Some(&params))
-    }
-
-    // TODO: Old search. There are new search endpoints in V2
-    // TODO: which output parameter are supported ?
-    pub fn search(&self, search: impl SearchParams, output: Option<Output>) -> OffResult {
-        let cgi_url = self.cgi_url(output.as_ref().and_then(|o| o.locale.as_ref()))?;
-        let url = cgi_url.join("search.pl")?;
+    fn search(&self, search: impl SearchParams, output: Option<Output>) -> OffResult {
+        let url = self.search_url(output.as_ref().and_then(|o| o.locale.as_ref()))?;
         let mut params = search.params();
         if let Some(output_params) = output.map(|o| o.params(&["fields"])) {
             params.extend(output_params);
         }
         self.get(url, Some(&params))
     }
+
+    // ------------------------------------------------------------------------
+    // Write
+    // ------------------------------------------------------------------------
+
+    // TODO
 
     // TODO: Serialization
     // Option 1
@@ -255,12 +236,6 @@ impl OffClient {
     // Return the base URL with the "world" locale.
     fn base_url_world(&self) -> Result<Url, ParseError> {
         self.base_url_locale(Some(&Locale::default()))
-    }
-
-    // Return the API URL with the locale given in Output::locale.
-    fn api_url(&self, locale: Option<&Locale>) -> Result<Url, ParseError> {
-        let base = self.base_url(locale)?;
-        base.join(&format!("api/{}/", self.version))
     }
 
     // Return the CGI URL with the locale given in Output::locale.
@@ -290,45 +265,146 @@ impl OffClient {
     }
 }
 
-#[cfg(test)]
-mod tests_api_version {
-    use super::*;
+impl VersionInfo for OffClient {}
 
-    #[test]
-    fn to_string() {
-        assert_eq!(ApiVersion::V0.to_string(), String::from("v0"));
-        assert_eq!(ApiVersion::V2.to_string(), String::from("v2"));
+pub struct OffClientV0 {
+    client: OffClient,
+}
+
+impl OffClientV0 {
+    pub(crate) fn new(locale: Locale, client: HttpClient) -> Self {
+        Self {
+            client: OffClient { locale, client },
+        }
     }
 
-    #[test]
-    fn from_str() {
-        use std::str::FromStr;
+    pub fn taxonomy(&self, taxonomy: &str) -> OffResult {
+        self.client.taxonomy(taxonomy)
+    }
 
-        assert_eq!(ApiVersion::from_str("v0").unwrap(), ApiVersion::V0);
-        assert_eq!(ApiVersion::from_str("v2").unwrap(), ApiVersion::V2);
-        assert_eq!(ApiVersion::from_str("v666").unwrap_err(), std::fmt::Error);
+    pub fn facet(&self, facet: &str, output: Option<Output>) -> OffResult {
+        self.client.facet(facet, output)
+    }
+
+    pub fn categories(&self, output: Option<Output>) -> OffResult {
+        self.client.categories(output)
+    }
+
+    pub fn nutrients(&self, output: Option<Output>) -> OffResult {
+        self.client.nutrients(output)
+    }
+
+    pub fn products_by(&self, what: &str, id: &str, output: Option<Output>) -> OffResult {
+        self.client.products_by(what, id, output)
+    }
+
+    pub fn product(&self, barcode: &str, output: Option<Output>) -> OffResult {
+        self.client.product(barcode, output)
+    }
+
+    pub fn search(&self, search: impl SearchParams, output: Option<Output>) -> OffResult {
+        self.client.search(search, output)
+    }
+}
+
+impl VersionInfo for OffClientV0 {
+    fn version(&self) -> ApiVersion {
+        ApiVersion::V0
+    }
+
+    fn api_url(&self, locale: Option<&Locale>) -> Result<Url, ParseError> {
+        let base = self.client.base_url(locale)?;
+        base.join(&format!("api/{}/", self.version()))
+    }
+
+    fn search_url(&self, locale: Option<&Locale>) -> Result<Url, ParseError> {
+        // Return the API URL with the locale given in Output::locale.
+        let cgi_url = self.client.cgi_url(locale)?;
+        cgi_url.join("search.pl")
+    }
+}
+
+pub struct OffClientV2 {
+    client: OffClient,
+}
+
+impl OffClientV2 {
+    pub(crate) fn new(locale: Locale, client: HttpClient) -> Self {
+        Self {
+            client: OffClient { locale, client },
+        }
+    }
+
+    pub fn search(&self, search: impl SearchParams, output: Option<Output>) -> OffResult {
+        self.client.search(search, output)
+    }
+
+    // TODO: V2 only ?
+    /// Search products by barcode.
+    ///
+    /// # OFF API request
+    ///
+    /// ```ignore
+    /// GET https://{locale}.openfoodfacts.org/api/v0/search
+    /// ```
+    ///
+    /// See also `product_by_barcode()` above.
+    ///
+    /// # Arguments
+    ///
+    /// * `barcodes` - A string with comma-separated barcodes.
+    /// * output - Optional output parameters. This call only supports the locale
+    ///     and fields parameters. TODO: Also pagination ?
+    ///
+    pub fn search_by_barcode(&self, barcodes: &str, output: Option<Output>) -> OffResult {
+        // Borrow output and extract Option<&Locale>
+        let url = self.search_url(output.as_ref().and_then(|o| o.locale.as_ref()))?;
+        let mut params = Params::new();
+        params.push(("code", String::from(barcodes)));
+        if let Some(output_params) = output.map(|o| o.params(&["fields"])) {
+            params.extend(output_params);
+        }
+        self.client.get(url, Some(&params))
+    }
+}
+
+impl VersionInfo for OffClientV2 {
+    fn version(&self) -> ApiVersion {
+        ApiVersion::V2
+    }
+
+    fn api_url(&self, locale: Option<&Locale>) -> Result<Url, ParseError> {
+        let base = self.client.base_url(locale)?;
+        base.join(&format!("api/{}/", self.version()))
+    }
+
+    fn search_url(&self, locale: Option<&Locale>) -> Result<Url, ParseError> {
+        // Return the API URL with the locale given in Output::locale.
+        let api_url = self.api_url(locale)?;
+        api_url.join("search")
     }
 }
 
 #[cfg(test)]
-mod tests_client {
+mod tests_off_client {
     use super::*;
-    use crate::Off;
+    use crate::OffBuilder;
 
     #[test]
     fn base_url_default() {
-        let off = Off::new(ApiVersion::V0).build().unwrap();
+        let off = OffBuilder::new().build_v0().unwrap();
         assert_eq!(
-            off.base_url(None).unwrap().as_str(),
+            off.client.base_url(None).unwrap().as_str(),
             "https://world.openfoodfacts.org/"
         );
     }
 
     #[test]
     fn base_url_locale() {
-        let off = Off::new(ApiVersion::V0).build().unwrap();
+        let off = OffBuilder::new().build_v0().unwrap();
         assert_eq!(
-            off.base_url(Some(&Locale::new("gr", None)))
+            off.client
+                .base_url(Some(&Locale::new("gr", None)))
                 .unwrap()
                 .as_str(),
             "https://gr.openfoodfacts.org/"
@@ -337,26 +413,53 @@ mod tests_client {
 
     #[test]
     fn base_url_world() {
-        let off = Off::new(ApiVersion::V0)
+        let off = OffBuilder::new()
             .locale(Locale::new("gr", None))
-            .build()
+            .build_v0()
             .unwrap();
         assert_eq!(
-            off.base_url_world().unwrap().as_str(),
+            off.client.base_url_world().unwrap().as_str(),
             "https://world.openfoodfacts.org/"
         );
     }
 
     #[test]
+    fn client_cgi_url() {
+        let off = OffBuilder::new().build_v0().unwrap();
+        assert_eq!(
+            off.client
+                .cgi_url(Some(&Locale::new("gr", None)))
+                .unwrap()
+                .as_str(),
+            "https://gr.openfoodfacts.org/cgi/"
+        );
+    }
+}
+
+#[cfg(test)]
+mod tests_version_info {
+    use super::*;
+    use crate::OffBuilder;
+
+    #[test]
+    fn version() {
+        let off_v0 = OffBuilder::new().build_v0().unwrap();
+        assert_eq!(off_v0.version(), ApiVersion::V0);
+
+        let off_v2 = OffBuilder::new().build_v2().unwrap();
+        assert_eq!(off_v2.version(), ApiVersion::V2);
+    }
+
+    #[test]
     fn api_url() {
-        let off_v0 = Off::new(ApiVersion::V0).build().unwrap();
+        let off_v0 = OffBuilder::new().build_v0().unwrap();
 
         assert_eq!(
             off_v0.api_url(None).unwrap().as_str(),
             "https://world.openfoodfacts.org/api/v0/"
         );
 
-        let off_v2 = Off::new(ApiVersion::V2).build().unwrap();
+        let off_v2 = OffBuilder::new().build_v2().unwrap();
         assert_eq!(
             off_v2
                 .api_url(Some(&Locale::new("gr", None)))
@@ -367,13 +470,21 @@ mod tests_client {
     }
 
     #[test]
-    fn client_cgi_url() {
-        let off = Off::new(ApiVersion::V0).build().unwrap();
+    fn search_url() {
+        let off_v0 = OffBuilder::new().build_v0().unwrap();
+
         assert_eq!(
-            off.cgi_url(Some(&Locale::new("gr", None)))
+            off_v0.search_url(None).unwrap().as_str(),
+            "https://world.openfoodfacts.org/cgi/search.pl"
+        );
+
+        let off_v2 = OffBuilder::new().build_v2().unwrap();
+        assert_eq!(
+            off_v2
+                .search_url(Some(&Locale::new("gr", None)))
                 .unwrap()
                 .as_str(),
-            "https://gr.openfoodfacts.org/cgi/"
+            "https://gr.openfoodfacts.org/api/v2/search"
         );
     }
 }

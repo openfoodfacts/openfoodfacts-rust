@@ -1,10 +1,10 @@
 // Integration tests using API v1.
-use openfoodfacts::{ApiVersion, Locale, Off, Output};
+use openfoodfacts::{Locale, OffBuilder, Output};
 use reqwest::StatusCode;
 
 #[test]
 fn taxonomy() {
-    let off = Off::new(ApiVersion::V0).build().unwrap();
+    let off = OffBuilder::new().build_v0().unwrap();
     let response = off.taxonomy("nova_groups").unwrap();
 
     assert_eq!(
@@ -16,7 +16,7 @@ fn taxonomy() {
 
 #[test]
 fn taxonomy_not_found() {
-    let off = Off::new(ApiVersion::V0).build().unwrap();
+    let off = OffBuilder::new().build_v0().unwrap();
     let response = off.taxonomy("not_found").unwrap();
 
     assert_eq!(
@@ -28,7 +28,7 @@ fn taxonomy_not_found() {
 
 #[test]
 fn facet() {
-    let off = Off::new(ApiVersion::V0).build().unwrap();
+    let off = OffBuilder::new().build_v0().unwrap();
     let response = off.facet("brands", None).unwrap();
 
     assert_eq!(
@@ -40,7 +40,7 @@ fn facet() {
 
 #[test]
 fn facet_params() {
-    let off = Off::new(ApiVersion::V0).build().unwrap();
+    let off = OffBuilder::new().build_v0().unwrap();
     let output = Output {
         locale: Some(Locale::new("fr", None)),
         page: Some(22),
@@ -58,7 +58,7 @@ fn facet_params() {
 
 #[test]
 fn categories() {
-    let off = Off::new(ApiVersion::V0).build().unwrap();
+    let off = OffBuilder::new().build_v0().unwrap();
     let response = off.categories(None).unwrap();
 
     assert_eq!(
@@ -70,7 +70,7 @@ fn categories() {
 
 #[test]
 fn categories_params() {
-    let off = Off::new(ApiVersion::V0).build().unwrap();
+    let off = OffBuilder::new().build_v0().unwrap();
     // Accepts only the locale parameter.
     let output = Output {
         locale: Some(Locale::new("fr", None)),
@@ -88,7 +88,7 @@ fn categories_params() {
 
 #[test]
 fn nutrients() {
-    let off = Off::new(ApiVersion::V0).build().unwrap();
+    let off = OffBuilder::new().build_v0().unwrap();
     let response = off.nutrients(None).unwrap();
 
     assert_eq!(
@@ -100,7 +100,7 @@ fn nutrients() {
 
 #[test]
 fn nutrients_params() {
-    let off = Off::new(ApiVersion::V0).build().unwrap();
+    let off = OffBuilder::new().build_v0().unwrap();
     // Accepts only the locale parameter.
     let output = Output {
         locale: Some(Locale::new("fr", None)),
@@ -118,7 +118,7 @@ fn nutrients_params() {
 
 #[test]
 fn products_by_facet() {
-    let off = Off::new(ApiVersion::V0).build().unwrap();
+    let off = OffBuilder::new().build_v0().unwrap();
     let response = off.products_by("additive", "e322-lecithins", None).unwrap();
     assert_eq!(
         response.url().as_str(),
@@ -129,7 +129,7 @@ fn products_by_facet() {
 
 #[test]
 fn products_by_facet_params() {
-    let off = Off::new(ApiVersion::V0).build().unwrap();
+    let off = OffBuilder::new().build_v0().unwrap();
     let output = Output {
         locale: Some(Locale::new("fr", None)),
         page: Some(22),
@@ -149,7 +149,7 @@ fn products_by_facet_params() {
 
 #[test]
 fn products_by_category() {
-    let off = Off::new(ApiVersion::V0).build().unwrap();
+    let off = OffBuilder::new().build_v0().unwrap();
     let response = off.products_by("category", "cheeses", None).unwrap();
 
     assert_eq!(
@@ -161,7 +161,7 @@ fn products_by_category() {
 
 #[test]
 fn products_by_category_params() {
-    let off = Off::new(ApiVersion::V0).build().unwrap();
+    let off = OffBuilder::new().build_v0().unwrap();
     let output = Output {
         locale: Some(Locale::new("fr", None)),
         page: Some(22),
@@ -182,7 +182,7 @@ fn products_by_category_params() {
 
 #[test]
 fn product() {
-    let off = Off::new(ApiVersion::V0).build().unwrap();
+    let off = OffBuilder::new().build_v0().unwrap();
     let response = off.product("069000019832", None).unwrap(); // Diet Pepsi
 
     assert_eq!(
@@ -194,7 +194,7 @@ fn product() {
 
 #[test]
 fn product_params() {
-    let off = Off::new(ApiVersion::V0).build().unwrap();
+    let off = OffBuilder::new().build_v0().unwrap();
     // Accepts only the locale and fields parameters.
     let output = Output {
         locale: Some(Locale::new("fr", None)),

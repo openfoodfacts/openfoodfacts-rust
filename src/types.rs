@@ -41,3 +41,23 @@ impl FromStr for ApiVersion {
         }
     }
 }
+
+#[cfg(test)]
+mod tests_api_version {
+    use super::*;
+
+    #[test]
+    fn to_string() {
+        assert_eq!(ApiVersion::V0.to_string(), String::from("v0"));
+        assert_eq!(ApiVersion::V2.to_string(), String::from("v2"));
+    }
+
+    #[test]
+    fn from_str() {
+        use std::str::FromStr;
+
+        assert_eq!(ApiVersion::from_str("v0").unwrap(), ApiVersion::V0);
+        assert_eq!(ApiVersion::from_str("v2").unwrap(), ApiVersion::V2);
+        assert_eq!(ApiVersion::from_str("v666").unwrap_err(), std::fmt::Error);
+    }
+}
