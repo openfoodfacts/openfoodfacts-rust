@@ -7,6 +7,7 @@
     - non blocking mode
     - write operations
     - robotoff support ?
+    - validate input for cc and lc in Locale ?
 
 * Beta 3
     - Supports the autosuggestions API at
