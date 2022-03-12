@@ -23,6 +23,7 @@ impl Display for SortBy {
 }
 
 // The internal representation of a search parameter value.
+#[derive(Debug)]
 enum Value {
     String(String),
     Number(u32),
@@ -47,14 +48,18 @@ impl From<u32> for Value {
     }
 }
 
-/// Implemented by Search objects.
+/// Implemented by SearchBuilder objects.
+///
+/// Produce the query parameters from the implementing SearchBuilder as a
+/// [`Params`] collection.
 pub trait SearchParams {
     fn params(&self) -> Params;
 }
 
-/// The search query builder. Produces an object implementing the trait SearchParams
-/// that can be passed to OffClient::search(). The constructor expects the ApiVersion
-/// number, used to select which implementation to return.
+/// The search query builder with state <S>.
+///
+/// Concrete types implement the [SearchParams] trait, expected by OffClient::search().
+#[derive(Debug)]
 pub struct SearchBuilder<S> {
     params: Vec<(String, Value)>,
     state: S,
@@ -69,13 +74,13 @@ pub struct SearchBuilder<S> {
 /// # Examples
 ///
 /// ```ignore
-/// let query = SearchParamsV0::new()
+/// let query = SearchBuilderV0::new()
 ///     .criteria("categories", "contains", "cereals")
 ///     .criteria("label", "contains", "kosher")
 ///     .ingredient("additives", "without"),
 ///     .nutrient("energy", "lt", 500);
 /// ```
-#[derive(Default)]
+#[derive(Debug, Default)]
 pub struct SearchStateV0 {
     criteria_index: u32,
     nutrient_index: u32,
@@ -230,7 +235,7 @@ impl SearchParams for SearchBuilderV0 {
 // Search V2
 // ----------------------------------------------------------------------------
 
-#[derive(Default)]
+#[derive(Debug, Default)]
 pub struct SearchStateV2 {
     sort_by: Option<SortBy>,
 }

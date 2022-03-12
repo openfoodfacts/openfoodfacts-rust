@@ -16,10 +16,11 @@ pub type OffResult = Result<HttpResponse, Box<dyn std::error::Error>>;
 /// be used per application.
 #[derive(Debug)]
 pub struct OffClient<V> {
+    // The version marker.
     v: V,
     // The default locale to use when no locale is given in a method call.
     locale: Locale,
-    // The uderlying reqwest client. TODO: Make a ref ?
+    // The uderlying reqwest client.
     client: HttpClient,
 }
 

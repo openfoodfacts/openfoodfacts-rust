@@ -12,7 +12,7 @@ mod types;
 /// The version of this library.
 pub const VERSION: &str = "alpha";
 
-/// Return a builder for a OffClient supporting the API V0.
+/// Return a builder to build an OffClient supporting the API V0.
 ///
 /// ```
 /// use openfoodfacts as off;
@@ -22,7 +22,7 @@ pub fn v0() -> OffBuilder<V0> {
     OffBuilder::new(V0 {})
 }
 
-/// Return a builder for a OffClient supporting the API V2.
+/// Return a builder to build an OffClient supporting the API V2.
 ///
 /// ```
 /// use openfoodfacts as off;
@@ -72,7 +72,7 @@ where
         self
     }
 
-    /// Create a new OffClient for the V version of the API, with the current
+    /// Create a new OffClient for the <V> version of the API, with the current
     /// builder options.
     /// After build() is called, the builder object is invalid.
     pub fn build(self) -> Result<OffClient<V>, reqwest::Error> {

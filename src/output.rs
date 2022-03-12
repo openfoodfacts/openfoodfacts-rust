@@ -89,6 +89,7 @@ impl Locale {
 /// ```ignore
 /// let output = Locale::default();
 /// ```
+///
 /// Output objects are better created using the struct update syntax:
 ///
 /// ```ignore
