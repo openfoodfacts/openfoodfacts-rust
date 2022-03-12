@@ -75,7 +75,7 @@ pub struct SearchBuilder<S> {
 ///     .ingredient("additives", "without"),
 ///     .nutrient("energy", "lt", 500);
 /// ```
-/// TODO: Rename as Filters ?
+#[derive(Default)]
 pub struct SearchStateV0 {
     criteria_index: u32,
     nutrient_index: u32,
@@ -85,16 +85,18 @@ pub struct SearchStateV0 {
 
 pub type SearchBuilderV0 = SearchBuilder<SearchStateV0>;
 
-impl SearchBuilderV0 {
-    pub fn new() -> Self {
+impl Default for SearchBuilderV0 {
+    fn default() -> Self {
         Self {
             params: Vec::new(),
-            state: SearchStateV0 {
-                criteria_index: 0,
-                nutrient_index: 0,
-                sort_by: None,
-            },
+            state: SearchStateV0::default(),
         }
+    }
+}
+
+impl SearchBuilderV0 {
+    pub fn new() -> Self {
+        Self::default()
     }
 
     /// Define a criteria query parameter.
@@ -228,18 +230,25 @@ impl SearchParams for SearchBuilderV0 {
 // Search V2
 // ----------------------------------------------------------------------------
 
+#[derive(Default)]
 pub struct SearchStateV2 {
     sort_by: Option<SortBy>,
 }
 
 pub type SearchBuilderV2 = SearchBuilder<SearchStateV2>;
 
-impl SearchBuilderV2 {
-    pub fn new() -> Self {
+impl Default for SearchBuilderV2 {
+    fn default() -> Self {
         Self {
             params: Vec::new(),
-            state: SearchStateV2 { sort_by: None },
+            state: SearchStateV2::default(),
         }
+    }
+}
+
+impl SearchBuilderV2 {
+    pub fn new() -> Self {
+        Self::default()
     }
 
     /// Define a criteria query parameter.
