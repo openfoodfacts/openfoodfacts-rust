@@ -1,6 +1,5 @@
+use crate::types::Params;
 use std::fmt::{self, Display, Formatter};
-
-use crate::types::{ApiVersion, Params};
 
 /// Sorting criteria
 #[derive(Debug)]
@@ -20,25 +19,6 @@ impl Display for SortBy {
             Self::LastModifiedDate => "last_modified_t",
         };
         write!(f, "{}", sort)
-    }
-}
-
-/// Implemented by Search objects.
-pub trait SearchParams {
-    fn params(&self) -> Params;
-}
-
-/// The search query builder. Produces an object implementing the trait SearchParams
-/// that can be passed to OffClient::search(). The constructor expects the ApiVersion
-/// number, used to select which implementation to return.
-pub struct Search;
-
-impl Search {
-    pub fn new(version: ApiVersion) -> impl SearchParams {
-        match version {
-            ApiVersion::V0 => SearchParamsV0::new(),
-            _ => panic!("Not implemented"), // TODO: ApiVersion::V2 => SearchParamsV2::new(),
-        }
     }
 }
 
@@ -67,6 +47,19 @@ impl From<u32> for Value {
     }
 }
 
+/// Implemented by Search objects.
+pub trait SearchParams {
+    fn params(&self) -> Params;
+}
+
+/// The search query builder. Produces an object implementing the trait SearchParams
+/// that can be passed to OffClient::search(). The constructor expects the ApiVersion
+/// number, used to select which implementation to return.
+pub struct SearchBuilder<S> {
+    params: Vec<(String, Value)>,
+    state: S,
+}
+
 // ----------------------------------------------------------------------------
 // Search V0
 // ----------------------------------------------------------------------------
@@ -83,22 +76,24 @@ impl From<u32> for Value {
 ///     .nutrient("energy", "lt", 500);
 /// ```
 /// TODO: Rename as Filters ?
-pub struct SearchParamsV0 {
-    params: Vec<(String, Value)>,
+pub struct SearchStateV0 {
     criteria_index: u32,
     nutrient_index: u32,
+    // TODO: Aso V2 ?
     sort_by: Option<SortBy>,
 }
 
-// TODO: Use refs for strings ?
-impl SearchParamsV0 {
-    /// Create a new, empty search parameters.
+pub type SearchBuilderV0 = SearchBuilder<SearchStateV0>;
+
+impl SearchBuilderV0 {
     pub fn new() -> Self {
         Self {
             params: Vec::new(),
-            criteria_index: 0,
-            nutrient_index: 0,
-            sort_by: None,
+            state: SearchStateV0 {
+                criteria_index: 0,
+                nutrient_index: 0,
+                sort_by: None,
+            },
         }
     }
 
@@ -120,17 +115,19 @@ impl SearchParamsV0 {
     ///
     /// [`API docs`]: https://openfoodfacts.github.io/api-documentation/#5Filtering
     pub fn criteria(&mut self, criteria: &str, op: &str, value: &str) -> &mut Self {
-        self.criteria_index += 1;
+        self.state.criteria_index += 1;
         self.params.push((
-            format!("tagtype_{}", self.criteria_index),
+            format!("tagtype_{}", self.state.criteria_index),
             Value::from(criteria),
         ));
         self.params.push((
-            format!("tag_contains_{}", self.criteria_index),
+            format!("tag_contains_{}", self.state.criteria_index),
             Value::from(op),
         ));
-        self.params
-            .push((format!("tag_{}", self.criteria_index), Value::from(value)));
+        self.params.push((
+            format!("tag_{}", self.state.criteria_index),
+            Value::from(value),
+        ));
         self
     }
 
@@ -181,17 +178,17 @@ impl SearchParamsV0 {
     ///
     /// [`API docs`]: https://openfoodfacts.github.io/api-documentation/#5Filtering
     pub fn nutrient(&mut self, nutriment: &str, op: &str, value: u32) -> &mut Self {
-        self.nutrient_index += 1;
+        self.state.nutrient_index += 1;
         self.params.push((
-            format!("nutriment_{}", self.nutrient_index),
+            format!("nutriment_{}", self.state.nutrient_index),
             Value::from(nutriment),
         ));
         self.params.push((
-            format!("nutriment_compare_{}", self.nutrient_index),
+            format!("nutriment_compare_{}", self.state.nutrient_index),
             Value::from(op),
         ));
         self.params.push((
-            format!("nutriment_value_{}", self.nutrient_index),
+            format!("nutriment_value_{}", self.state.nutrient_index),
             Value::from(value),
         ));
         self
@@ -199,12 +196,12 @@ impl SearchParamsV0 {
 
     /// Set/clear the sorting order.
     pub fn sort_by(&mut self, sort_by: Option<SortBy>) -> &mut Self {
-        self.sort_by = sort_by;
+        self.state.sort_by = sort_by;
         self
     }
 }
 
-impl SearchParams for SearchParamsV0 {
+impl SearchParams for SearchBuilderV0 {
     fn params(&self) -> Params {
         let mut params: Params = Vec::new();
         for (name, value) in &self.params {
@@ -217,7 +214,7 @@ impl SearchParams for SearchParamsV0 {
             };
             params.push((name, v));
         }
-        if let Some(ref s) = self.sort_by {
+        if let Some(ref s) = self.state.sort_by {
             params.push(("sort_by", s.to_string()));
         }
         // Adds the 'action' and 'json' parameter. TODO: Should be done in client::search() ?
@@ -231,16 +228,17 @@ impl SearchParams for SearchParamsV0 {
 // Search V2
 // ----------------------------------------------------------------------------
 
-pub struct SearchParamsV2 {
-    params: Vec<(String, Value)>,
+pub struct SearchStateV2 {
     sort_by: Option<SortBy>,
 }
 
-impl SearchParamsV2 {
+pub type SearchBuilderV2 = SearchBuilder<SearchStateV2>;
+
+impl SearchBuilderV2 {
     pub fn new() -> Self {
-        SearchParamsV2 {
+        Self {
             params: Vec::new(),
-            sort_by: None,
+            state: SearchStateV2 { sort_by: None },
         }
     }
 
@@ -330,12 +328,12 @@ impl SearchParamsV2 {
     /// TODO: Supported ?
     /// Set/clear the sorting order.
     pub fn sort_by(&mut self, sort_by: Option<SortBy>) -> &mut Self {
-        self.sort_by = sort_by;
+        self.state.sort_by = sort_by;
         self
     }
 }
 
-impl SearchParams for SearchParamsV2 {
+impl SearchParams for SearchBuilderV2 {
     fn params(&self) -> Params {
         let mut params: Params = Vec::new();
         for (name, value) in &self.params {
@@ -346,7 +344,7 @@ impl SearchParams for SearchParamsV2 {
             };
             params.push((name, v));
         }
-        if let Some(ref s) = self.sort_by {
+        if let Some(ref s) = self.state.sort_by {
             params.push(("sort_by", s.to_string()));
         }
         params
@@ -381,7 +379,7 @@ mod tests_search_v0 {
 
     #[test]
     fn search_params() {
-        let mut search = SearchParamsV0::new();
+        let mut search = SearchBuilderV0::new();
         search
             .criteria("brands", "contains", "Nestlé")
             .criteria("categories", "does_not_contain", "cheese")
@@ -424,7 +422,7 @@ mod tests_search_v2 {
 
     #[test]
     fn search_params() {
-        let mut search = SearchParamsV2::new();
+        let mut search = SearchBuilderV2::new();
         search
             .criteria("brands", "Nestlé", Some("fr"))
             .criteria("categories", "-cheese", None)
