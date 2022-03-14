@@ -1,18 +1,20 @@
-use std::env::consts::OS;
+#![allow(dead_code)]
 use reqwest::blocking::Client;
 use reqwest::header;
+use std::env::consts::OS;
 
 mod client;
 mod output;
 mod search;
 mod types;
 
+/// Re-exports
 pub use crate::client::{OffClient, OffResult};
-pub use crate::output::{Output, Locale};
+pub use crate::output::{Locale, Output};
 pub use crate::search::Search;
 pub use crate::types::ApiVersion;
 
-// The version of this library.
+/// The version of this library.
 pub const VERSION: &str = "alpha";
 
 // Authentication tuple (username, password).
@@ -35,7 +37,7 @@ pub struct Off {
     auth: Option<Auth>,
     // The User-Agent header value to send on each Off request. Optional.
     // If not given, use the default user agent.
-    user_agent: Option<String>
+    user_agent: Option<String>,
 }
 
 impl Off {
@@ -51,14 +53,14 @@ impl Off {
     /// * version - The API version to use.
     pub fn new(version: ApiVersion) -> Self {
         Self {
-            version: version,
+            version,
             locale: Locale::default(),
             auth: None,
             // TODO: Get version and URL from somewhere else ?
             user_agent: Some(format!(
                 "OffRustClient - {} - Version {} - {}",
                 OS, VERSION, "https://github.com/openfoodfacts/openfoodfacts-rust"
-            ))
+            )),
         }
     }
 
@@ -88,8 +90,10 @@ impl Off {
         if let Some(auth) = self.auth {
             // TODO: Needs to be encoded !
             let basic_auth = format!("Basic {}:{}", auth.0, auth.1);
-            headers.insert(reqwest::header::AUTHORIZATION,
-                           reqwest::header::HeaderValue::from_str(&basic_auth).unwrap());
+            headers.insert(
+                reqwest::header::AUTHORIZATION,
+                reqwest::header::HeaderValue::from_str(&basic_auth).unwrap(),
+            );
         }
         let mut cb = Client::builder();
         if !headers.is_empty() {
@@ -103,11 +107,10 @@ impl Off {
         Ok(OffClient {
             version: self.version,
             locale: self.locale,
-            client: cb.build()?
+            client: cb.build()?,
         })
     }
 }
-
 
 #[cfg(test)]
 mod tests {
@@ -119,10 +122,13 @@ mod tests {
         assert_eq!(builder.version, ApiVersion::V0);
         assert_eq!(builder.locale, Locale::default());
         assert_eq!(builder.auth, None);
-        assert_eq!(builder.user_agent, Some(format!(
-            "OffRustClient - {} - Version {} - {}",
-            OS, "alpha", "https://github.com/openfoodfacts/openfoodfacts-rust"
-        )));
+        assert_eq!(
+            builder.user_agent,
+            Some(format!(
+                "OffRustClient - {} - Version {} - {}",
+                OS, "alpha", "https://github.com/openfoodfacts/openfoodfacts-rust"
+            ))
+        );
     }
 
     #[test]
@@ -132,8 +138,10 @@ mod tests {
             .auth("user", "pwd")
             .user_agent("user agent");
         assert_eq!(builder.locale, Locale::new("gr", None));
-        assert_eq!(builder.auth,
-                   Some(Auth(String::from("user"), String::from("pwd"))));
+        assert_eq!(
+            builder.auth,
+            Some(Auth(String::from("user"), String::from("pwd")))
+        );
         assert_eq!(builder.user_agent, Some(String::from("user agent")));
     }
 }

@@ -16,14 +16,14 @@ pub type Params<'a> = Vec<(&'a str, String)>;
 #[derive(Debug, PartialEq)]
 pub enum ApiVersion {
     V0,
-    V2
+    V2,
 }
 
 impl Display for ApiVersion {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         let version = match self {
             Self::V0 => "v0",
-            Self::V2 => "v2"
+            Self::V2 => "v2",
         };
         write!(f, "{}", version)
     }
@@ -33,11 +33,11 @@ impl FromStr for ApiVersion {
     type Err = fmt::Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        debug_assert!(s.len() > 0);
+        debug_assert!(!s.is_empty());
         match s {
-            "v0" => { Ok(Self::V0) },
-            "v2" => { Ok(Self::V2) },
-            _    => { Err(fmt::Error) }
+            "v0" => Ok(Self::V0),
+            "v2" => Ok(Self::V2),
+            _ => Err(fmt::Error),
         }
     }
 }

@@ -1,14 +1,16 @@
 // Integration tests using API v1.
+use openfoodfacts::{ApiVersion, Locale, Off, Output};
 use reqwest::StatusCode;
-use openfoodfacts::{Off, ApiVersion, Output, Locale};
 
 #[test]
 fn taxonomy() {
     let off = Off::new(ApiVersion::V0).build().unwrap();
     let response = off.taxonomy("nova_groups").unwrap();
 
-    assert_eq!(response.url().as_str(),
-               "https://world.openfoodfacts.org/data/taxonomies/nova_groups.json");
+    assert_eq!(
+        response.url().as_str(),
+        "https://world.openfoodfacts.org/data/taxonomies/nova_groups.json"
+    );
     assert_eq!(response.status().is_success(), true);
 }
 
@@ -17,8 +19,10 @@ fn taxonomy_not_found() {
     let off = Off::new(ApiVersion::V0).build().unwrap();
     let response = off.taxonomy("not_found").unwrap();
 
-    assert_eq!(response.url().as_str(),
-               "https://world.openfoodfacts.org/data/taxonomies/not_found.json");
+    assert_eq!(
+        response.url().as_str(),
+        "https://world.openfoodfacts.org/data/taxonomies/not_found.json"
+    );
     assert_eq!(response.status(), StatusCode::NOT_FOUND);
 }
 
@@ -27,7 +31,10 @@ fn facet() {
     let off = Off::new(ApiVersion::V0).build().unwrap();
     let response = off.facet("brands", None).unwrap();
 
-    assert_eq!(response.url().as_str(), "https://world.openfoodfacts.org/brands.json");
+    assert_eq!(
+        response.url().as_str(),
+        "https://world.openfoodfacts.org/brands.json"
+    );
     assert_eq!(response.status().is_success(), true);
 }
 
@@ -42,7 +49,10 @@ fn facet_params() {
         ..Output::default()
     };
     let response = off.facet("brands", Some(output)).unwrap();
-    assert_eq!(response.url().as_str(), "https://fr.openfoodfacts.org/brands.json?page=22&fields=url&nocache=true");
+    assert_eq!(
+        response.url().as_str(),
+        "https://fr.openfoodfacts.org/brands.json?page=22&fields=url&nocache=true"
+    );
     assert_eq!(response.status().is_success(), true);
 }
 
@@ -51,7 +61,10 @@ fn categories() {
     let off = Off::new(ApiVersion::V0).build().unwrap();
     let response = off.categories(None).unwrap();
 
-    assert_eq!(response.url().as_str(), "https://world.openfoodfacts.org/categories.json");
+    assert_eq!(
+        response.url().as_str(),
+        "https://world.openfoodfacts.org/categories.json"
+    );
     assert_eq!(response.status().is_success(), true);
 }
 
@@ -66,7 +79,10 @@ fn categories_params() {
     };
     let response = off.categories(Some(output)).unwrap();
 
-    assert_eq!(response.url().as_str(), "https://fr.openfoodfacts.org/categories.json");
+    assert_eq!(
+        response.url().as_str(),
+        "https://fr.openfoodfacts.org/categories.json"
+    );
     assert_eq!(response.status().is_success(), true);
 }
 
@@ -75,7 +91,10 @@ fn nutrients() {
     let off = Off::new(ApiVersion::V0).build().unwrap();
     let response = off.nutrients(None).unwrap();
 
-    assert_eq!(response.url().as_str(), "https://world.openfoodfacts.org/cgi/nutrients.pl");
+    assert_eq!(
+        response.url().as_str(),
+        "https://world.openfoodfacts.org/cgi/nutrients.pl"
+    );
     assert_eq!(response.status().is_success(), true);
 }
 
@@ -90,7 +109,10 @@ fn nutrients_params() {
     };
     let response = off.nutrients(Some(output)).unwrap();
 
-    assert_eq!(response.url().as_str(), "https://fr.openfoodfacts.org/cgi/nutrients.pl");
+    assert_eq!(
+        response.url().as_str(),
+        "https://fr.openfoodfacts.org/cgi/nutrients.pl"
+    );
     assert_eq!(response.status().is_success(), true);
 }
 
@@ -98,7 +120,10 @@ fn nutrients_params() {
 fn products_by_facet() {
     let off = Off::new(ApiVersion::V0).build().unwrap();
     let response = off.products_by("additive", "e322-lecithins", None).unwrap();
-    assert_eq!(response.url().as_str(), "https://world.openfoodfacts.org/additive/e322-lecithins.json");
+    assert_eq!(
+        response.url().as_str(),
+        "https://world.openfoodfacts.org/additive/e322-lecithins.json"
+    );
     assert_eq!(response.status().is_success(), true);
 }
 
@@ -112,18 +137,25 @@ fn products_by_facet_params() {
         fields: Some("url"),
         ..Output::default()
     };
-    let response = off.products_by("additif", "e322-lecithines", Some(output)).unwrap();
-    assert_eq!(response.url().as_str(), "https://fr.openfoodfacts.org/additif/e322-lecithines.json?page=22&page_size=20&fields=url");
+    let response = off
+        .products_by("additif", "e322-lecithines", Some(output))
+        .unwrap();
+    assert_eq!(
+        response.url().as_str(),
+        "https://fr.openfoodfacts.org/additif/e322-lecithines.json?page=22&page_size=20&fields=url"
+    );
     assert_eq!(response.status().is_success(), true);
 }
-
 
 #[test]
 fn products_by_category() {
     let off = Off::new(ApiVersion::V0).build().unwrap();
     let response = off.products_by("category", "cheeses", None).unwrap();
 
-    assert_eq!(response.url().as_str(), "https://world.openfoodfacts.org/category/cheeses.json");
+    assert_eq!(
+        response.url().as_str(),
+        "https://world.openfoodfacts.org/category/cheeses.json"
+    );
     assert_eq!(response.status().is_success(), true);
 }
 
@@ -137,18 +169,26 @@ fn products_by_category_params() {
         fields: Some("url"),
         ..Output::default()
     };
-    let response = off.products_by("categorie", "fromages", Some(output)).unwrap();
+    let response = off
+        .products_by("categorie", "fromages", Some(output))
+        .unwrap();
 
-    assert_eq!(response.url().as_str(), "https://fr.openfoodfacts.org/categorie/fromages.json?page=22&page_size=20&fields=url");
+    assert_eq!(
+        response.url().as_str(),
+        "https://fr.openfoodfacts.org/categorie/fromages.json?page=22&page_size=20&fields=url"
+    );
     assert_eq!(response.status().is_success(), true);
 }
 
 #[test]
 fn product() {
     let off = Off::new(ApiVersion::V0).build().unwrap();
-    let response = off.product("069000019832", None).unwrap();  // Diet Pepsi
+    let response = off.product("069000019832", None).unwrap(); // Diet Pepsi
 
-    assert_eq!(response.url().as_str(), "https://world.openfoodfacts.org/api/v0/product/069000019832");
+    assert_eq!(
+        response.url().as_str(),
+        "https://world.openfoodfacts.org/api/v0/product/069000019832"
+    );
     assert_eq!(response.status().is_success(), true);
 }
 
@@ -163,9 +203,12 @@ fn product_params() {
         fields: Some("url"),
         ..Output::default()
     };
-    let response = off.product("069000019832", Some(output)).unwrap();  // 069000019832 = Diet Pepsi
+    let response = off.product("069000019832", Some(output)).unwrap(); // 069000019832 = Diet Pepsi
 
-    assert_eq!(response.url().as_str(), "https://fr.openfoodfacts.org/api/v0/product/069000019832?fields=url");
+    assert_eq!(
+        response.url().as_str(),
+        "https://fr.openfoodfacts.org/api/v0/product/069000019832?fields=url"
+    );
     assert_eq!(response.status().is_success(), true);
 }
 
@@ -180,4 +223,3 @@ fn product_params() {
 //   let response = off.category("cheeses", Some("gr")).unwrap();
 //   println!("JSON: {:?}", response.json::<HashMap::<String, Value>>().unwrap());
 // }
-
