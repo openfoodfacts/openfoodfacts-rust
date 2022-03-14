@@ -39,7 +39,7 @@ where
 {
     // Notes:
     //
-    // * The 'cc' and 'lc' query parmeters are not supported. The country and
+    // * The 'cc' and 'lc' query parameters are not supported. The country and
     //   language are always selected via the subdomain.
     // * Only JSON calls are supported.
 
@@ -133,6 +133,7 @@ where
     /// Get the nutrients by country.
     ///
     /// # OFF API request
+    ///
     /// ```ignore
     /// GET https://{locale}.openfoodfacts.org/cgi/nutrients.pl
     /// ```
@@ -150,6 +151,7 @@ where
     /// Get all products for the given facet or category.
     ///
     /// # OFF API request
+    ///
     /// ```ignore
     /// GET https://{locale}.openfoodfacts.org/{facet}/{value}.json
     /// ```
@@ -195,10 +197,6 @@ where
         let params = output.map(|o| o.params(&["fields"]));
         self.get(url, params.as_ref())
     }
-
-    // ------------------------------------------------------------------------
-    // Write
-    // ------------------------------------------------------------------------
 
     // Return the base URL with the locale given in Output::locale. If Output is None
     // or Output::locale is None, use the client's default locale.

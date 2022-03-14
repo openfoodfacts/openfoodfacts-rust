@@ -45,7 +45,7 @@ pub struct OffBuilder<V> {
     locale: Locale,
     // Optional. Only needed for write operations.
     auth: Option<Auth>,
-    // The User-Agent header value to send on each Off request. Optional.
+    // The User-Agent header value to send on each request. Optional.
     // If not given, use the default user agent.
     user_agent: Option<String>,
 }

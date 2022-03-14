@@ -22,6 +22,24 @@ impl Display for SortBy {
     }
 }
 
+/// Implemented by SearchBuilder objects.
+///
+/// Produce the query parameters from the implementing SearchBuilder as a
+/// [`Params`] collection.
+pub trait SearchParams {
+    fn params(&self) -> Params;
+}
+
+/// The search query builder with state <S>.
+///
+/// Concrete types implement the [`SearchParams`] trait expected by
+/// OffClient::search().
+#[derive(Debug)]
+pub struct SearchBuilder<S> {
+    params: Vec<(String, Value)>,
+    state: S,
+}
+
 // The internal representation of a search parameter value.
 #[derive(Debug)]
 enum Value {
@@ -46,23 +64,6 @@ impl From<u32> for Value {
     fn from(value: u32) -> Self {
         Self::Number(value)
     }
-}
-
-/// Implemented by SearchBuilder objects.
-///
-/// Produce the query parameters from the implementing SearchBuilder as a
-/// [`Params`] collection.
-pub trait SearchParams {
-    fn params(&self) -> Params;
-}
-
-/// The search query builder with state <S>.
-///
-/// Concrete types implement the [SearchParams] trait, expected by OffClient::search().
-#[derive(Debug)]
-pub struct SearchBuilder<S> {
-    params: Vec<(String, Value)>,
-    state: S,
 }
 
 // ----------------------------------------------------------------------------
