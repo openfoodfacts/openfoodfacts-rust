@@ -2,7 +2,7 @@ pub use reqwest::blocking::{Client as HttpClient, Response as HttpResponse};
 use url::{ParseError, Url};
 
 use crate::output::{Locale, Output};
-use crate::search::{SearchBuilderV0, SearchBuilderV2, SearchParams};
+use crate::search::{SearchParams, SearchQueryV0, SearchQueryV2};
 use crate::types::{Params, Version, V0, V2};
 
 /// The return type of all OffClient methods.
@@ -39,7 +39,7 @@ where
 {
     // Notes:
     //
-    // * The 'cc' and 'lc' query parameters are not supported. The country and
+    // * The 'cc' and 'lc' query parmeters are not supported. The country and
     //   language are always selected via the subdomain.
     // * Only JSON calls are supported.
 
@@ -242,11 +242,26 @@ where
 }
 
 impl OffClient<V0> {
-    pub fn search_bulder(&self) -> SearchBuilderV0 {
-        SearchBuilderV0::new()
+    /// Return a SearchQueryV0 object that can be used to define a search query
+    /// for the search() method.
+    pub fn query(&self) -> SearchQueryV0 {
+        SearchQueryV0::new()
     }
 
-    pub fn search(&self, search: impl SearchParams, output: Option<Output>) -> OffResult {
+    /// Called by the search builder to execute the search query.
+    ///
+    /// # OFF API request
+    ///
+    /// ```ignore
+    /// GET https://{locale}.openfoodfacts.org/cgi/search.pl?action=process...
+    /// ```
+    ///
+    /// # Arguments:
+    ///
+    /// * search: An search query object created with [`OffClient<V0>::query_builder()`].
+    /// * output: Optional output parameters. This call only supports the locale
+    ///     and fields parameters.
+    pub fn search(&self, search: SearchQueryV0, output: Option<Output>) -> OffResult {
         let url = self.search_url(output.as_ref().and_then(|o| o.locale.as_ref()))?;
         let mut params = search.params();
         if let Some(output_params) = output.map(|o| o.params(&["fields"])) {
@@ -262,11 +277,26 @@ impl OffClient<V0> {
 }
 
 impl OffClient<V2> {
-    pub fn search_bulder(&self) -> SearchBuilderV2 {
-        SearchBuilderV2::new()
+    /// Return a SearchQueryV2 object that can be used to define a search query
+    /// for the search() method.
+    pub fn query(&self) -> SearchQueryV2 {
+        SearchQueryV2::new()
     }
 
-    pub fn search(&self, search: impl SearchParams, output: Option<Output>) -> OffResult {
+    /// Called by the search builder to execute the search query.
+    ///
+    /// # OFF API request
+    ///
+    /// ```ignore
+    /// GET https://{locale}.openfoodfacts.org/api/v2/search
+    /// ```
+    ///
+    /// # Arguments:
+    ///
+    /// * search: An search query object created with [`OffClient<V2>::query_builder()`].
+    /// * output: Optional output parameters. This call only supports the locale
+    ///     and fields parameters.
+    pub(crate) fn search(&self, search: SearchQueryV2, output: Option<Output>) -> OffResult {
         let url = self.search_url(output.as_ref().and_then(|o| o.locale.as_ref()))?;
         let mut params = search.params();
         if let Some(output_params) = output.map(|o| o.params(&["fields"])) {
@@ -275,24 +305,22 @@ impl OffClient<V2> {
         self.get(url, Some(&params))
     }
 
-    // TODO: V2 only ?
-    /// Search products by barcode.
+    /// List of products.
     ///
     /// # OFF API request
     ///
     /// ```ignore
-    /// GET https://{locale}.openfoodfacts.org/api/v0/search
+    /// GET https://{locale}.openfoodfacts.org/api/v2/search?code=<code>,<code>,..
     /// ```
-    ///
-    /// See also `product_by_barcode()` above.
     ///
     /// # Arguments
     ///
+    /// TODO: Support iterator (FromIter ?)
     /// * `barcodes` - A string with comma-separated barcodes.
     /// * output - Optional output parameters. This call only supports the locale
     ///     and fields parameters. TODO: Also pagination ?
     ///
-    pub fn search_by_barcode(&self, barcodes: &str, output: Option<Output>) -> OffResult {
+    pub fn products(&self, barcodes: &str, output: Option<Output>) -> OffResult {
         // Borrow output and extract Option<&Locale>
         let url = self.search_url(output.as_ref().and_then(|o| o.locale.as_ref()))?;
         let mut params = Params::new();

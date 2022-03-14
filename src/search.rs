@@ -1,13 +1,22 @@
 use crate::types::Params;
 use std::fmt::{self, Display, Formatter};
 
-/// Sorting criteria
+/// Sorting criteria.
+///
+/// # Variants:
+///
+/// * Popularity - Number of unique scans.
+/// * Product name - Product name, alphabetical.
+/// * CreatedDate - Add date.
+/// * LastModifiedDate - Last edit date.
+/// * EcoScore - Eco score (V2 only)?
 #[derive(Debug)]
 pub enum SortBy {
     Popularity,
     ProductName,
     CreatedDate,
     LastModifiedDate,
+    EcoScore,
 }
 
 impl Display for SortBy {
@@ -17,30 +26,23 @@ impl Display for SortBy {
             Self::ProductName => "product_name",
             Self::CreatedDate => "created_t",
             Self::LastModifiedDate => "last_modified_t",
+            Self::EcoScore => "ecoscore_score",
         };
         write!(f, "{}", sort)
     }
 }
 
-/// Implemented by SearchBuilder objects.
-///
-/// Produce the query parameters from the implementing SearchBuilder as a
-/// [`Params`] collection.
-pub trait SearchParams {
-    fn params(&self) -> Params;
-}
-
-/// The search query builder with state <S>.
+/// Build a search query.
 ///
 /// Concrete types implement the [`SearchParams`] trait expected by
 /// OffClient::search().
 #[derive(Debug)]
-pub struct SearchBuilder<S> {
+pub struct SearchQuery<S> {
     params: Vec<(String, Value)>,
     state: S,
 }
 
-// The internal representation of a search parameter value.
+// The internal representation of a search query parameter value.
 #[derive(Debug)]
 enum Value {
     String(String),
@@ -66,41 +68,51 @@ impl From<u32> for Value {
     }
 }
 
+/// Convert a SearchQuery<S> object into a [`Params`] object.
+pub trait SearchParams {
+    /// Perform the conversion, consuming the query builder object.
+    fn params(&self) -> Params;
+}
+
 // ----------------------------------------------------------------------------
-// Search V0
+// SearchQuery V0
 // ----------------------------------------------------------------------------
 
-/// Search parameters.
+/// A search query builder for the Search API V0.
 ///
 /// # Examples
 ///
 /// ```ignore
-/// let query = SearchBuilderV0::new()
+/// use openfoodfacts;
+///
+/// let client = openfoodfacts::v0().build()?;
+/// let query = client
+///     .query()
 ///     .criteria("categories", "contains", "cereals")
 ///     .criteria("label", "contains", "kosher")
 ///     .ingredient("additives", "without"),
 ///     .nutrient("energy", "lt", 500);
+/// let response = client.search(query, None);
 /// ```
 #[derive(Debug, Default)]
-pub struct SearchStateV0 {
+pub struct QueryStateV0 {
     criteria_index: u32,
     nutrient_index: u32,
-    // TODO: Aso V2 ?
     sort_by: Option<SortBy>,
 }
 
-pub type SearchBuilderV0 = SearchBuilder<SearchStateV0>;
+pub type SearchQueryV0 = SearchQuery<QueryStateV0>;
 
-impl Default for SearchBuilderV0 {
+impl Default for SearchQueryV0 {
     fn default() -> Self {
         Self {
             params: Vec::new(),
-            state: SearchStateV0::default(),
+            state: QueryStateV0::default(),
         }
     }
 }
 
-impl SearchBuilderV0 {
+impl SearchQueryV0 {
     pub fn new() -> Self {
         Self::default()
     }
@@ -209,7 +221,7 @@ impl SearchBuilderV0 {
     }
 }
 
-impl SearchParams for SearchBuilderV0 {
+impl SearchParams for SearchQueryV0 {
     fn params(&self) -> Params {
         let mut params: Params = Vec::new();
         for (name, value) in &self.params {
@@ -233,26 +245,26 @@ impl SearchParams for SearchBuilderV0 {
 }
 
 // ----------------------------------------------------------------------------
-// Search V2
+// Search Query V2
 // ----------------------------------------------------------------------------
 
 #[derive(Debug, Default)]
-pub struct SearchStateV2 {
+pub struct QueryStateV2 {
     sort_by: Option<SortBy>,
 }
 
-pub type SearchBuilderV2 = SearchBuilder<SearchStateV2>;
+pub type SearchQueryV2 = SearchQuery<QueryStateV2>;
 
-impl Default for SearchBuilderV2 {
+impl Default for SearchQueryV2 {
     fn default() -> Self {
         Self {
             params: Vec::new(),
-            state: SearchStateV2::default(),
+            state: QueryStateV2::default(),
         }
     }
 }
 
-impl SearchBuilderV2 {
+impl SearchQueryV2 {
     pub fn new() -> Self {
         Self::default()
     }
@@ -348,7 +360,7 @@ impl SearchBuilderV2 {
     }
 }
 
-impl SearchParams for SearchBuilderV2 {
+impl SearchParams for SearchQueryV2 {
     fn params(&self) -> Params {
         let mut params: Params = Vec::new();
         for (name, value) in &self.params {
@@ -394,7 +406,7 @@ mod tests_search_v0 {
 
     #[test]
     fn search_params() {
-        let mut search = SearchBuilderV0::new();
+        let mut search = SearchQueryV0::new();
         search
             .criteria("brands", "contains", "Nestlé")
             .criteria("categories", "does_not_contain", "cheese")
@@ -437,7 +449,7 @@ mod tests_search_v2 {
 
     #[test]
     fn search_params() {
-        let mut search = SearchBuilderV2::new();
+        let mut search = SearchQueryV2::new();
         search
             .criteria("brands", "Nestlé", Some("fr"))
             .criteria("categories", "-cheese", None)
