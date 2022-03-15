@@ -1,3 +1,5 @@
+use crate::client::{OffResult, RequestMethods, SearchUrl};
+use crate::output::Output;
 use crate::types::Params;
 use std::fmt::{self, Display, Formatter};
 
@@ -34,8 +36,7 @@ impl Display for SortBy {
 
 /// Build a search query.
 ///
-/// Concrete types implement the [`SearchParams`] trait expected by
-/// OffClient::search().
+/// Concrete types must implement the [`QueryParams`] trait.
 #[derive(Debug)]
 pub struct SearchQuery<S> {
     params: Vec<(String, Value)>,
@@ -69,9 +70,32 @@ impl From<u32> for Value {
 }
 
 /// Convert a SearchQuery<S> object into a [`Params`] object.
-pub trait SearchParams {
-    /// Perform the conversion, consuming the query builder object.
+pub trait QueryParams {
     fn params(&self) -> Params;
+}
+
+impl<S> SearchQuery<S> {
+    /// Send the search query. Relies on the client to obtain the versioned
+    /// search API endpoint and to send the request.
+    ///
+    /// # Arguments:
+    ///
+    /// * params: A concrete SearchQuery object implementing the QueryParams trait.
+    /// * client: A OffClient object implementing the SearchUrl and RequestMethod
+    ///     traits.
+    /// * output: Output parameters.
+    pub fn search(
+        params: impl QueryParams,
+        client: &(impl SearchUrl + RequestMethods),
+        output: Option<Output>,
+    ) -> OffResult {
+        let url = client.search_url(output.as_ref().and_then(|o| o.locale.as_ref()))?;
+        let mut params = params.params();
+        if let Some(output_params) = output.map(|o| o.params(&["fields"])) {
+            params.extend(output_params);
+        }
+        client.get(url, Some(&params))
+    }
 }
 
 // ----------------------------------------------------------------------------
@@ -221,7 +245,7 @@ impl SearchQueryV0 {
     }
 }
 
-impl SearchParams for SearchQueryV0 {
+impl QueryParams for SearchQueryV0 {
     fn params(&self) -> Params {
         let mut params: Params = Vec::new();
         for (name, value) in &self.params {
@@ -359,7 +383,7 @@ impl SearchQueryV2 {
     }
 }
 
-impl SearchParams for SearchQueryV2 {
+impl QueryParams for SearchQueryV2 {
     fn params(&self) -> Params {
         let mut params: Params = Vec::new();
         for (name, value) in &self.params {
@@ -404,7 +428,7 @@ mod tests_search_v0 {
     use super::*;
 
     #[test]
-    fn search_params() {
+    fn query_params() {
         let query = SearchQueryV0::new()
             .criteria("brands", "contains", "Nestlé")
             .criteria("categories", "does_not_contain", "cheese")

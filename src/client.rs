@@ -2,7 +2,7 @@ pub use reqwest::blocking::{Client as HttpClient, Response as HttpResponse};
 use url::{ParseError, Url};
 
 use crate::output::{Locale, Output};
-use crate::search::{SearchParams, SearchQueryV0, SearchQueryV2};
+use crate::search::{SearchQueryV0, SearchQueryV2};
 use crate::types::{Params, Version, V0, V2};
 
 /// The return type of all OffClient methods.
@@ -57,6 +57,12 @@ pub trait Urls: Version {
     // Return the base URL with the given locale. If locale is None, return the
     // client's default locale.
     fn host_with_locale(&self, locale: Option<&Locale>) -> Result<Url, ParseError>;
+}
+
+/// Generate versioned search API URLs.
+pub trait SearchUrl: Urls {
+    /// Return the versioned search URL.
+    fn search_url(&self, locale: Option<&Locale>) -> Result<Url, ParseError>;
 }
 
 /// OFF request methods. At present, only GET is implemented.
@@ -266,48 +272,19 @@ where
     }
 }
 
-// OFF search products.
-//
-// This trait provides the default implementation of the search() method. Concrete
-// types must implement the search_url() method.
-pub trait Search: RequestMethods {
-    /// Execute a search query built with the appropriate query buidler.
-    ///
-    /// # OFF API request
-    ///
-    /// ```ignore
-    /// GET <API version search URL>.
-    /// ```
-    ///
-    /// See the implementation of search_url() in the concrete types.
-    ///
-    /// # Arguments:
-    ///
-    /// * search: An search query object.
-    /// * output: Optional output parameters. This call only supports the locale
-    ///     and fields parameters.
-    fn search(&self, search: impl SearchParams, output: Option<Output>) -> OffResult {
-        let url = self.search_url(output.as_ref().and_then(|o| o.locale.as_ref()))?;
-        let mut params = search.params();
-        if let Some(output_params) = output.map(|o| o.params(&["fields"])) {
-            params.extend(output_params);
-        }
-        self.get(url, Some(&params))
-    }
-
-    /// Return the versioned search URL with the given locale or the default locale if
-    /// none given.
-    fn search_url(&self, locale: Option<&Locale>) -> Result<Url, ParseError>;
-}
-
 impl OffClient<V0> {
     /// Return the query builder for API V0.
     pub fn query(&self) -> SearchQueryV0 {
         SearchQueryV0::new()
     }
+
+    /// Send the search query.
+    pub fn search(&self, query: SearchQueryV0, output: Option<Output>) -> OffResult {
+        SearchQueryV0::search(query, self, output)
+    }
 }
 
-impl Search for OffClient<V0> {
+impl SearchUrl for OffClient<V0> {
     /// Return the API V0 search URL.
     ///  
     /// ```ignore
@@ -323,6 +300,11 @@ impl OffClient<V2> {
     /// Return the query builder for API V2.
     pub fn query(&self) -> SearchQueryV2 {
         SearchQueryV2::new()
+    }
+
+    /// Send the search query.
+    pub fn search(&self, query: SearchQueryV2, output: Option<Output>) -> OffResult {
+        SearchQueryV2::search(query, self, output)
     }
 
     /// List of products.
@@ -352,7 +334,7 @@ impl OffClient<V2> {
     }
 }
 
-impl Search for OffClient<V2> {
+impl SearchUrl for OffClient<V2> {
     /// Return the API V2 search URL.
     ///  
     /// ```ignore

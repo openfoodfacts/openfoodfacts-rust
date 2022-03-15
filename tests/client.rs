@@ -1,5 +1,5 @@
 // Integration tests using API v1.
-use openfoodfacts::{self as off, Locale, Output, Search};
+use openfoodfacts::{self as off, Locale, Output};
 use reqwest::StatusCode;
 
 #[test]
@@ -207,8 +207,8 @@ fn product_params() {
 #[test]
 fn search_v0() {
     let client = off::v0().build().unwrap();
-    let query_builder = client.query();
-    let query = query_builder
+    let query = client
+        .query()
         .criteria("brands", "contains", "Nestlé")
         .criteria("categories", "does_not_contain", "cheese")
         .ingredient("additives", "without")
@@ -224,8 +224,8 @@ fn search_v0() {
 #[test]
 fn search_v2() {
     let client = off::v2().build().unwrap();
-    let query_builder = client.query();
-    let query = query_builder
+    let query = client
+        .query()
         .criteria("brands", "Nestlé", Some("fr"))
         .criteria("categories", "-cheese", None)
         .nutrient_100g("fiber", "<", 500)

@@ -1,5 +1,5 @@
 #![allow(dead_code)]
-pub use crate::client::{HttpClient, OffClient, OffResult, Search};
+pub use crate::client::{HttpClient, OffClient, OffResult};
 pub use crate::output::{Locale, Output};
 use crate::types::{Version, V0, V2};
 use std::env::consts::OS;
