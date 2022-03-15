@@ -24,12 +24,80 @@ pub struct OffClient<V> {
     client: HttpClient,
 }
 
+/// Generate common OFF Urls.
+///
+/// This trait provides the default implementations. Concrete types need only to
+/// implement the host_with_locale() method.
+pub trait Urls: Version {
+    /// Return the base URL with the given locale or the default locale if
+    /// none given.
+    fn base_url(&self, locale: Option<&Locale>) -> Result<Url, ParseError> {
+        self.host_with_locale(locale)
+    }
+
+    /// Return the base URL with the "world" locale.
+    fn base_url_world(&self) -> Result<Url, ParseError> {
+        self.host_with_locale(Some(&Locale::default()))
+    }
+
+    /// Return the CGI URL with the locale given locale or the default locale if
+    /// none given.
+    fn cgi_url(&self, locale: Option<&Locale>) -> Result<Url, ParseError> {
+        let base = self.base_url(locale)?;
+        base.join("cgi/")
+    }
+
+    /// Return the versioned API URL with the given locale or the default locale if
+    /// none given.
+    fn api_url(&self, locale: Option<&Locale>) -> Result<Url, ParseError> {
+        let base = self.base_url(locale)?;
+        base.join(&format!("api/{}/", self.version()))
+    }
+
+    // Return the base URL with the given locale. If locale is None, return the
+    // client's default locale.
+    fn host_with_locale(&self, locale: Option<&Locale>) -> Result<Url, ParseError>;
+}
+
+/// OFF request methods. At present, only GET is implemented.
+pub trait RequestMethods {
+    /// Build and send a GET request.
+    fn get(&self, url: Url, params: Option<&Params>) -> OffResult;
+}
+
 impl<V> Version for OffClient<V>
 where
     V: Version,
 {
     fn version(&self) -> &str {
         self.v.version()
+    }
+}
+
+impl<V> Urls for OffClient<V>
+where
+    V: Version,
+{
+    // Return the base URL with the given locale. If locale is None, return the
+    // client's default locale.
+    fn host_with_locale(&self, locale: Option<&Locale>) -> Result<Url, ParseError> {
+        let url = format!(
+            "https://{}.openfoodfacts.org/",
+            locale.map_or(self.locale.to_string(), |l| l.to_string())
+        );
+        Url::parse(&url)
+    }
+}
+
+impl<V> RequestMethods for OffClient<V> {
+    // Build and send a GET request.
+    fn get(&self, url: Url, params: Option<&Params>) -> OffResult {
+        let mut rb = self.client.get(url);
+        if let Some(p) = params {
+            rb = rb.query(p);
+        }
+        let response = rb.send()?;
+        Ok(response)
     }
 }
 
@@ -42,7 +110,6 @@ where
     // * The 'cc' and 'lc' query parmeters are not supported. The country and
     //   language are always selected via the subdomain.
     // * Only JSON calls are supported.
-
     pub fn new(v: V, locale: Locale, client: HttpClient) -> Self {
         Self { v, locale, client }
     }
@@ -197,71 +264,29 @@ where
         let params = output.map(|o| o.params(&["fields"]));
         self.get(url, params.as_ref())
     }
-
-    // Return the base URL with the locale given in Output::locale. If Output is None
-    // or Output::locale is None, use the client's default locale.
-    fn base_url(&self, locale: Option<&Locale>) -> Result<Url, ParseError> {
-        self.base_url_locale(locale)
-    }
-
-    // Return the base URL with the "world" locale.
-    fn base_url_world(&self) -> Result<Url, ParseError> {
-        self.base_url_locale(Some(&Locale::default()))
-    }
-
-    // Return the CGI URL with the locale given in Output::locale.
-    fn cgi_url(&self, locale: Option<&Locale>) -> Result<Url, ParseError> {
-        let base = self.base_url(locale)?;
-        base.join("cgi/")
-    }
-
-    fn api_url(&self, locale: Option<&Locale>) -> Result<Url, ParseError> {
-        let base = self.base_url(locale)?;
-        base.join(&format!("api/{}/", self.version()))
-    }
-
-    // Return the base URL with the given locale. If locale is None, return the
-    // client's default locale.
-    fn base_url_locale(&self, locale: Option<&Locale>) -> Result<Url, ParseError> {
-        let url = format!(
-            "https://{}.openfoodfacts.org/",
-            locale.map_or(self.locale.to_string(), |l| l.to_string())
-        );
-        Url::parse(&url)
-    }
-
-    // Build and send a GET request.
-    fn get(&self, url: Url, params: Option<&Params>) -> OffResult {
-        let mut rb = self.client.get(url);
-        if let Some(p) = params {
-            rb = rb.query(p);
-        }
-        let response = rb.send()?;
-        Ok(response)
-    }
 }
 
-impl OffClient<V0> {
-    /// Return a SearchQueryV0 object that can be used to define a search query
-    /// for the search() method.
-    pub fn query(&self) -> SearchQueryV0 {
-        SearchQueryV0::new()
-    }
-
-    /// Called by the search builder to execute the search query.
+// OFF search products.
+//
+// This trait provides the default implementation of the search() method. Concrete
+// types must implement the search_url() method.
+pub trait Search: RequestMethods {
+    /// Execute a search query built with the appropriate query buidler.
     ///
     /// # OFF API request
     ///
     /// ```ignore
-    /// GET https://{locale}.openfoodfacts.org/cgi/search.pl?action=process...
+    /// GET <API version search URL>.
     /// ```
+    ///
+    /// See the implementation of search_url() in the concrete types.
     ///
     /// # Arguments:
     ///
-    /// * search: An search query object created with [`OffClient<V0>::query_builder()`].
+    /// * search: An search query object.
     /// * output: Optional output parameters. This call only supports the locale
     ///     and fields parameters.
-    pub fn search(&self, search: SearchQueryV0, output: Option<Output>) -> OffResult {
+    fn search(&self, search: impl SearchParams, output: Option<Output>) -> OffResult {
         let url = self.search_url(output.as_ref().and_then(|o| o.locale.as_ref()))?;
         let mut params = search.params();
         if let Some(output_params) = output.map(|o| o.params(&["fields"])) {
@@ -270,6 +295,24 @@ impl OffClient<V0> {
         self.get(url, Some(&params))
     }
 
+    /// Return the versioned search URL with the given locale or the default locale if
+    /// none given.
+    fn search_url(&self, locale: Option<&Locale>) -> Result<Url, ParseError>;
+}
+
+impl OffClient<V0> {
+    /// Return the query builder for API V0.
+    pub fn query(&self) -> SearchQueryV0 {
+        SearchQueryV0::new()
+    }
+}
+
+impl Search for OffClient<V0> {
+    /// Return the API V0 search URL.
+    ///  
+    /// ```ignore
+    /// https://{locale}.openfoodfacts.org/cgi/search.pl?action=process...
+    /// ```
     fn search_url(&self, locale: Option<&Locale>) -> Result<Url, ParseError> {
         let cgi_url = self.cgi_url(locale)?;
         cgi_url.join("search.pl")
@@ -277,32 +320,9 @@ impl OffClient<V0> {
 }
 
 impl OffClient<V2> {
-    /// Return a SearchQueryV2 object that can be used to define a search query
-    /// for the search() method.
+    /// Return the query builder for API V2.
     pub fn query(&self) -> SearchQueryV2 {
         SearchQueryV2::new()
-    }
-
-    /// Called by the search builder to execute the search query.
-    ///
-    /// # OFF API request
-    ///
-    /// ```ignore
-    /// GET https://{locale}.openfoodfacts.org/api/v2/search
-    /// ```
-    ///
-    /// # Arguments:
-    ///
-    /// * search: An search query object created with [`OffClient<V2>::query_builder()`].
-    /// * output: Optional output parameters. This call only supports the locale
-    ///     and fields parameters.
-    pub(crate) fn search(&self, search: SearchQueryV2, output: Option<Output>) -> OffResult {
-        let url = self.search_url(output.as_ref().and_then(|o| o.locale.as_ref()))?;
-        let mut params = search.params();
-        if let Some(output_params) = output.map(|o| o.params(&["fields"])) {
-            params.extend(output_params);
-        }
-        self.get(url, Some(&params))
     }
 
     /// List of products.
@@ -330,7 +350,14 @@ impl OffClient<V2> {
         }
         self.get(url, Some(&params))
     }
+}
 
+impl Search for OffClient<V2> {
+    /// Return the API V2 search URL.
+    ///  
+    /// ```ignore
+    /// https://{locale}.openfoodfacts.org/api/v2/search
+    /// ```
     fn search_url(&self, locale: Option<&Locale>) -> Result<Url, ParseError> {
         // Return the API URL with the locale given in Output::locale.
         let api_url = self.api_url(locale)?;

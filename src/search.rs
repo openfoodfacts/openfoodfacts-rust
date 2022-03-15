@@ -134,7 +134,7 @@ impl SearchQueryV0 {
     /// * value - The searched criteria value.
     ///
     /// [`API docs`]: https://openfoodfacts.github.io/api-documentation/#5Filtering
-    pub fn criteria(&mut self, criteria: &str, op: &str, value: &str) -> &mut Self {
+    pub fn criteria(mut self, criteria: &str, op: &str, value: &str) -> Self {
         self.state.criteria_index += 1;
         self.params.push((
             format!("tagtype_{}", self.state.criteria_index),
@@ -169,7 +169,7 @@ impl SearchQueryV0 {
     /// If `ingredient` is "additives", the values "with", "without" and "indiferent"
     /// are converted to "with_additives", "without_additives" and "indifferent_additives"
     /// respectively.
-    pub fn ingredient(&mut self, ingredient: &str, value: &str) -> &mut Self {
+    pub fn ingredient(mut self, ingredient: &str, value: &str) -> Self {
         self.params.push((
             String::from(ingredient),
             match ingredient {
@@ -197,7 +197,7 @@ impl SearchQueryV0 {
     /// * value - The value to compare.
     ///
     /// [`API docs`]: https://openfoodfacts.github.io/api-documentation/#5Filtering
-    pub fn nutrient(&mut self, nutriment: &str, op: &str, value: u32) -> &mut Self {
+    pub fn nutrient(mut self, nutriment: &str, op: &str, value: u32) -> Self {
         self.state.nutrient_index += 1;
         self.params.push((
             format!("nutriment_{}", self.state.nutrient_index),
@@ -215,7 +215,7 @@ impl SearchQueryV0 {
     }
 
     /// Set/clear the sorting order.
-    pub fn sort_by(&mut self, sort_by: Option<SortBy>) -> &mut Self {
+    pub fn sort_by(mut self, sort_by: Option<SortBy>) -> Self {
         self.state.sort_by = sort_by;
         self
     }
@@ -294,7 +294,7 @@ impl SearchQueryV2 {
     ///
     /// [`openfoodfacts API docs`]: https://openfoodfacts.github.io/api-documentation/#5Filtering
     /// [`Search V2 API docs`]: https://wiki.openfoodfacts.org/Open_Food_Facts_Search_API_Version_2
-    pub fn criteria(&mut self, criteria: &str, value: &str, lc: Option<&str>) -> &mut Self {
+    pub fn criteria(mut self, criteria: &str, value: &str, lc: Option<&str>) -> Self {
         if let Some(lc) = lc {
             self.params
                 .push((format!("{}_tags_{}", criteria, lc), Value::from(value)));
@@ -331,7 +331,7 @@ impl SearchQueryV2 {
     ///
     /// [`API docs`]: https://openfoodfacts.github.io/api-documentation/#5Filtering
     /// [`Search V2 API docs`]: https://wiki.openfoodfacts.org/Open_Food_Facts_Search_API_Version_2
-    pub fn nutrient(&mut self, nutrient: &str, unit: &str, op: &str, value: u32) -> &mut Self {
+    pub fn nutrient(mut self, nutrient: &str, unit: &str, op: &str, value: u32) -> Self {
         let param = match op {
             "=" => (format!("{}_{}", nutrient, unit), Value::from(value)),
             // The name and value becomes the param name. TODO: Check HTTP specs if <, >, etc supported
@@ -343,18 +343,17 @@ impl SearchQueryV2 {
     }
 
     /// Convenience method to add a nutrient condition per 100 grams.
-    pub fn nutrient_100g(&mut self, nutrient: &str, op: &str, value: u32) -> &mut Self {
+    pub fn nutrient_100g(self, nutrient: &str, op: &str, value: u32) -> Self {
         self.nutrient(nutrient, "100g", op, value)
     }
 
     /// Convenience method to add a nutrient condition per serving.
-    pub fn nutrient_serving(&mut self, nutrient: &str, op: &str, value: u32) -> &mut Self {
+    pub fn nutrient_serving(self, nutrient: &str, op: &str, value: u32) -> Self {
         self.nutrient(nutrient, "serving", op, value)
     }
 
-    /// TODO: Supported ?
     /// Set/clear the sorting order.
-    pub fn sort_by(&mut self, sort_by: Option<SortBy>) -> &mut Self {
+    pub fn sort_by(mut self, sort_by: Option<SortBy>) -> Self {
         self.state.sort_by = sort_by;
         self
     }
@@ -406,8 +405,7 @@ mod tests_search_v0 {
 
     #[test]
     fn search_params() {
-        let mut search = SearchQueryV0::new();
-        search
+        let query = SearchQueryV0::new()
             .criteria("brands", "contains", "Nestlé")
             .criteria("categories", "does_not_contain", "cheese")
             .ingredient("additives", "without")
@@ -415,7 +413,7 @@ mod tests_search_v0 {
             .nutrient("fiber", "lt", 500)
             .nutrient("salt", "gt", 100);
 
-        let params = search.params();
+        let params = query.params();
         assert_eq!(
             &params,
             &[
@@ -449,8 +447,7 @@ mod tests_search_v2 {
 
     #[test]
     fn search_params() {
-        let mut search = SearchQueryV2::new();
-        search
+        let query = SearchQueryV2::new()
             .criteria("brands", "Nestlé", Some("fr"))
             .criteria("categories", "-cheese", None)
             // TODO ?
@@ -459,7 +456,7 @@ mod tests_search_v2 {
             .nutrient_100g("fiber", "<", 500)
             .nutrient_serving("salt", "=", 100);
 
-        let params = search.params();
+        let params = query.params();
         assert_eq!(
             &params,
             &[

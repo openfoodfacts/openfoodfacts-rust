@@ -1,5 +1,5 @@
 // Integration tests using API v1.
-use openfoodfacts::{self as off, Locale, Output};
+use openfoodfacts::{self as off, Locale, Output, Search};
 use reqwest::StatusCode;
 
 #[test]
@@ -201,6 +201,38 @@ fn product_params() {
         response.url().as_str(),
         "https://fr.openfoodfacts.org/api/v0/product/069000019832?fields=url"
     );
+    assert_eq!(response.status().is_success(), true);
+}
+
+#[test]
+fn search_v0() {
+    let client = off::v0().build().unwrap();
+    let query_builder = client.query();
+    let query = query_builder
+        .criteria("brands", "contains", "Nestlé")
+        .criteria("categories", "does_not_contain", "cheese")
+        .ingredient("additives", "without")
+        .ingredient("ingredients_that_may_be_from_palm_oil", "indifferent")
+        .nutrient("fiber", "lt", 500)
+        .nutrient("salt", "gt", 100);
+
+    let response = client.search(query, None).unwrap();
+    assert_eq!(response.url().path(), "/cgi/search.pl");
+    assert_eq!(response.status().is_success(), true);
+}
+
+#[test]
+fn search_v2() {
+    let client = off::v2().build().unwrap();
+    let query_builder = client.query();
+    let query = query_builder
+        .criteria("brands", "Nestlé", Some("fr"))
+        .criteria("categories", "-cheese", None)
+        .nutrient_100g("fiber", "<", 500)
+        .nutrient_serving("salt", "=", 100);
+
+    let response = client.search(query, None).unwrap();
+    assert_eq!(response.url().path(), "/api/v2/search");
     assert_eq!(response.status().is_success(), true);
 }
 
