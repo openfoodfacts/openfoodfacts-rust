@@ -28,7 +28,7 @@ pub struct OffClient<V> {
 ///
 /// This trait provides the default implementations. Concrete types need only to
 /// implement the host_with_locale() method.
-pub trait Urls: Version {
+pub trait Urls {
     /// Return the base URL with the given locale or the default locale if
     /// none given.
     fn base_url(&self, locale: Option<&Locale>) -> Result<Url, ParseError> {
@@ -47,20 +47,23 @@ pub trait Urls: Version {
         base.join("cgi/")
     }
 
+    // Return the base URL with the given locale. If locale is None, return the
+    // client's default locale.
+    fn host_with_locale(&self, locale: Option<&Locale>) -> Result<Url, ParseError>;
+}
+
+/// Generate versioned API URLs.
+pub trait ApiUrl: Version + Urls {
     /// Return the versioned API URL with the given locale or the default locale if
     /// none given.
     fn api_url(&self, locale: Option<&Locale>) -> Result<Url, ParseError> {
         let base = self.base_url(locale)?;
         base.join(&format!("api/{}/", self.version()))
     }
-
-    // Return the base URL with the given locale. If locale is None, return the
-    // client's default locale.
-    fn host_with_locale(&self, locale: Option<&Locale>) -> Result<Url, ParseError>;
 }
 
 /// Generate versioned search API URLs.
-pub trait SearchUrl: Urls {
+pub trait SearchUrl: ApiUrl {
     /// Return the versioned search URL.
     fn search_url(&self, locale: Option<&Locale>) -> Result<Url, ParseError>;
 }
@@ -94,6 +97,8 @@ where
         Url::parse(&url)
     }
 }
+
+impl<V> ApiUrl for OffClient<V> where V: Version {}
 
 impl<V> RequestMethods for OffClient<V> {
     // Build and send a GET request.
