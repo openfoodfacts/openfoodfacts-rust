@@ -11,7 +11,17 @@ use std::fmt::{self, Display, Formatter};
 /// * Product name - Product name, alphabetical.
 /// * CreatedDate - Add date.
 /// * LastModifiedDate - Last edit date.
-/// * EcoScore - Eco score (V2 only)?
+/// * EcoScore - Eco score.
+///
+/// TODO:
+/// last_modified_t_complete_first
+/// scans_n
+/// completeness
+/// popularity_key
+/// popularity
+/// nutriscore_score
+/// nova_score
+/// nothing
 #[derive(Debug)]
 pub enum SortBy {
     Popularity,
@@ -40,6 +50,7 @@ impl Display for SortBy {
 #[derive(Debug, Default)]
 pub struct SearchQuery<S> {
     params: Vec<(String, Value)>,
+    sort_by: Option<SortBy>,
     state: S,
 }
 
@@ -75,6 +86,12 @@ pub trait QueryParams {
 }
 
 impl<S> SearchQuery<S> {
+    /// Set/clear the sorting order.
+    pub fn sort_by(mut self, sort_by: Option<SortBy>) -> Self {
+        self.sort_by = sort_by;
+        self
+    }
+
     /// Send the search query. Relies on the client to obtain the versioned
     /// search API endpoint and to send the request.
     ///
@@ -122,7 +139,6 @@ impl<S> SearchQuery<S> {
 pub struct QueryStateV0 {
     criteria_index: u32,
     nutrient_index: u32,
-    sort_by: Option<SortBy>,
 }
 
 pub type SearchQueryV0 = SearchQuery<QueryStateV0>;
@@ -228,12 +244,6 @@ impl SearchQueryV0 {
         ));
         self
     }
-
-    /// Set/clear the sorting order.
-    pub fn sort_by(mut self, sort_by: Option<SortBy>) -> Self {
-        self.state.sort_by = sort_by;
-        self
-    }
 }
 
 impl QueryParams for SearchQueryV0 {
@@ -249,7 +259,7 @@ impl QueryParams for SearchQueryV0 {
             };
             params.push((name, v));
         }
-        if let Some(ref s) = self.state.sort_by {
+        if let Some(ref s) = self.sort_by {
             params.push(("sort_by", s.to_string()));
         }
         // Adds the 'action' and 'json' parameter. TODO: Should be done in client::search() ?
@@ -264,9 +274,7 @@ impl QueryParams for SearchQueryV0 {
 // ----------------------------------------------------------------------------
 
 #[derive(Debug, Default)]
-pub struct QueryStateV2 {
-    sort_by: Option<SortBy>,
-}
+pub struct QueryStateV2;
 
 pub type SearchQueryV2 = SearchQuery<QueryStateV2>;
 
@@ -357,12 +365,6 @@ impl SearchQueryV2 {
     pub fn nutrient_serving(self, nutrient: &str, op: &str, value: u32) -> Self {
         self.nutrient(nutrient, "serving", op, value)
     }
-
-    /// Set/clear the sorting order.
-    pub fn sort_by(mut self, sort_by: Option<SortBy>) -> Self {
-        self.state.sort_by = sort_by;
-        self
-    }
 }
 
 impl QueryParams for SearchQueryV2 {
@@ -376,7 +378,7 @@ impl QueryParams for SearchQueryV2 {
             };
             params.push((name, v));
         }
-        if let Some(ref s) = self.state.sort_by {
+        if let Some(ref s) = self.sort_by {
             params.push(("sort_by", s.to_string()));
         }
         params
