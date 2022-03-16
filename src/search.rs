@@ -37,7 +37,7 @@ impl Display for SortBy {
 /// Build a search query.
 ///
 /// Concrete types must implement the [`QueryParams`] trait.
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct SearchQuery<S> {
     params: Vec<(String, Value)>,
     state: S,
@@ -126,15 +126,6 @@ pub struct QueryStateV0 {
 }
 
 pub type SearchQueryV0 = SearchQuery<QueryStateV0>;
-
-impl Default for SearchQueryV0 {
-    fn default() -> Self {
-        Self {
-            params: Vec::new(),
-            state: QueryStateV0::default(),
-        }
-    }
-}
 
 impl SearchQueryV0 {
     pub fn new() -> Self {
@@ -278,15 +269,6 @@ pub struct QueryStateV2 {
 }
 
 pub type SearchQueryV2 = SearchQuery<QueryStateV2>;
-
-impl Default for SearchQueryV2 {
-    fn default() -> Self {
-        Self {
-            params: Vec::new(),
-            state: QueryStateV2::default(),
-        }
-    }
-}
 
 impl SearchQueryV2 {
     pub fn new() -> Self {
