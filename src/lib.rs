@@ -4,13 +4,15 @@ use reqwest::header;
 use std::env::consts::OS;
 
 mod client;
+mod locale;
 mod output;
 mod search;
 mod types;
 
 /// Re-exports
 pub use crate::client::{OffClient, OffResult};
-pub use crate::output::{Locale, Output};
+pub use crate::locale::Locale;
+pub use crate::output::Output;
 pub use crate::search::Search;
 pub use crate::types::ApiVersion;
 

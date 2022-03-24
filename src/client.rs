@@ -1,9 +1,9 @@
-use reqwest::blocking::{Client, Response};
-use url::{ParseError, Url};
-
-use crate::output::{Locale, Output};
 use crate::search::SearchParams;
 use crate::types::{ApiVersion, Params};
+use crate::Locale;
+use crate::Output;
+use reqwest::blocking::{Client, Response};
+use url::{ParseError, Url};
 
 /// The OFF API client, created using the Off builder.
 ///
@@ -17,7 +17,7 @@ pub struct OffClient {
     pub(crate) version: ApiVersion,
     // The default locale to use when no locale is given in a method call.
     pub(crate) locale: Locale,
-    // The uderlying reqwest client. TODO: Make a ref ?
+    // The underlying reqwest client. TODO: Make a ref ?
     pub(crate) client: Client,
 }
 
@@ -41,7 +41,7 @@ impl OffClient {
     ///
     /// `GET https://world.openfoodfacts.org/data/taxonomies/{taxonomy}.json`
     ///
-    /// Taxomonies support only the locale "world".
+    /// Taxonomies support only the locale "world".
     ///
     /// # Arguments
     ///
@@ -57,7 +57,7 @@ impl OffClient {
     ///     - nova_groups (*)
     ///     - nutrient_levels (*)
     ///     - states
-    /// (*) Only taxomomy. There is no facet equivalent.
+    /// (*) Only taxonomy. There is no facet equivalent.
     pub fn taxonomy(&self, taxonomy: &str) -> OffResult {
         let base_url = self.base_url_world()?; // force world locale.
         let url = base_url.join(&format!("data/taxonomies/{}.json", taxonomy))?;
