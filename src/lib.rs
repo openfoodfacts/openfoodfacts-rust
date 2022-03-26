@@ -35,7 +35,7 @@
 //! use std::collections::HashMap;
 //! use serde_json::Value;
 //!
-//! # fn main() -> Result<(), off::OffError> {
+//! # fn main() -> Result<(), off::Error> {
 //! let client = off::v2().build().unwrap();
 //! let response = client.products_by(
 //!     "category",
@@ -59,7 +59,7 @@
 //! ```
 //! use openfoodfacts as off;
 //!
-//! # fn main() -> Result<(), off::OffError> {
+//! # fn main() -> Result<(), off::Error> {
 //! let client = off::v2().build().unwrap();
 //! let query = client.query()
 //!     .criteria("brands", "Nestlé", Some("fr"))
@@ -71,7 +71,7 @@
 //! # }
 //! ```
 #![allow(dead_code)]
-pub use crate::client::{HttpClient, HttpResponse, OffClient, OffError, OffResult};
+pub use crate::client::{Error, HttpClient, HttpResponse, OffClient, Result};
 pub use crate::locale::Locale;
 pub use crate::output::Output;
 use crate::types::{Version, V0, V2};
@@ -156,7 +156,7 @@ where
 
     /// Creates a new OffClient for the `V` version of the API, with the current
     /// builder options. Consumes the builder.
-    pub fn build(self) -> Result<OffClient<V>, reqwest::Error> {
+    pub fn build(self) -> std::result::Result<OffClient<V>, reqwest::Error> {
         let client = self.build_http_client()?;
         Ok(OffClient::new(self.v, self.locale, client))
     }

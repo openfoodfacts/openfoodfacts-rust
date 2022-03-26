@@ -1,4 +1,4 @@
-use crate::client::{OffResult, RequestMethods, SearchUrl};
+use crate::client::{RequestMethods, Result, SearchUrl};
 use crate::output::Output;
 use crate::types::Params;
 use std::fmt::{self, Display, Formatter};
@@ -98,7 +98,7 @@ impl<S> SearchQuery<S> {
         params: impl QueryParams,
         client: &(impl SearchUrl + RequestMethods),
         output: Option<Output>,
-    ) -> OffResult {
+    ) -> Result {
         let url = client.search_url(output.as_ref().and_then(|o| o.locale.as_ref()))?;
         let mut params = params.params();
         if let Some(output_params) = output.map(|o| o.params(&["fields"])) {
@@ -119,7 +119,7 @@ impl<S> SearchQuery<S> {
 /// ```
 /// use openfoodfacts as off;
 ///
-/// # fn main() -> Result<(), off::OffError> {
+/// # fn main() -> Result<(), off::Error> {
 /// let client = off::v0().build().unwrap();
 /// let query = client
 ///     .query()
