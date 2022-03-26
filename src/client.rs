@@ -1,3 +1,8 @@
+// Notes:
+//
+// * The 'cc' and 'lc' query parmeters are not supported. The country and
+//   language are always selected via the subdomain.
+// * Only JSON calls are supported.
 use crate::locale::Locale;
 use crate::output::Output;
 use crate::search::{SearchQueryV0, SearchQueryV2};
@@ -5,15 +10,18 @@ use crate::types::{Params, Version, V0, V2};
 pub use reqwest::blocking::{Client as HttpClient, Response as HttpResponse};
 use url::{ParseError, Url};
 
+/// The error type of all OffClient methods.
+pub type OffError = Box<dyn std::error::Error>;
+
 /// The return type of all OffClient methods.
-pub type OffResult = Result<HttpResponse, Box<dyn std::error::Error>>;
+pub type OffResult = Result<HttpResponse, OffError>;
 
 /// The OFF API client.
 ///
-/// All methods return a OffResult object.
-///
-/// The OffClient owns a reqwest::Client object. One single OffClient should
+/// The client owns a [reqwest::Client] object. One single OFF client should
 /// be used per application.
+///
+/// All methods return an [OffResult] object.
 #[derive(Debug)]
 pub struct OffClient<V> {
     // The version marker.
@@ -24,11 +32,11 @@ pub struct OffClient<V> {
     client: HttpClient,
 }
 
-/// Generate common OFF Urls.
+/// Generates common OFF Urls.
 ///
 /// This trait provides the default implementations. Concrete types need only to
 /// implement the host_with_locale() method.
-pub trait Urls {
+pub(crate) trait Urls {
     /// Return the base URL with the given locale or the default locale if
     /// none given.
     fn base_url(&self, locale: Option<&Locale>) -> Result<Url, ParseError> {
@@ -53,7 +61,7 @@ pub trait Urls {
 }
 
 /// Generate versioned API URLs.
-pub trait ApiUrl: Version + Urls {
+pub(crate) trait ApiUrl: Version + Urls {
     /// Return the versioned API URL with the given locale or the default locale if
     /// none given.
     fn api_url(&self, locale: Option<&Locale>) -> Result<Url, ParseError> {
@@ -63,7 +71,7 @@ pub trait ApiUrl: Version + Urls {
 }
 
 /// Generate versioned search API URLs.
-pub trait SearchUrl: ApiUrl {
+pub(crate) trait SearchUrl: ApiUrl {
     /// Return the versioned search URL.
     fn search_url(&self, locale: Option<&Locale>) -> Result<Url, ParseError>;
 }
@@ -87,8 +95,8 @@ impl<V> Urls for OffClient<V>
 where
     V: Version,
 {
-    // Return the base URL with the given locale. If locale is None, return the
-    // client's default locale.
+    /// Returns the base URL with the given locale. If locale is None, return the
+    /// client's default locale.
     fn host_with_locale(&self, locale: Option<&Locale>) -> Result<Url, ParseError> {
         let url = format!(
             "https://{}.openfoodfacts.org/",
@@ -101,7 +109,7 @@ where
 impl<V> ApiUrl for OffClient<V> where V: Version {}
 
 impl<V> RequestMethods for OffClient<V> {
-    // Build and send a GET request.
+    /// Builds and send a GET request.
     fn get(&self, url: Url, params: Option<&Params>) -> OffResult {
         let mut rb = self.client.get(url);
         if let Some(p) = params {
@@ -116,20 +124,11 @@ impl<V> OffClient<V>
 where
     V: Version + Copy,
 {
-    // Notes:
-    //
-    // * The 'cc' and 'lc' query parmeters are not supported. The country and
-    //   language are always selected via the subdomain.
-    // * Only JSON calls are supported.
-    pub fn new(v: V, locale: Locale, client: HttpClient) -> Self {
-        Self { v, locale, client }
-    }
-
     // ------------------------------------------------------------------------
     // Metadata
     // ------------------------------------------------------------------------
 
-    /// Get the given taxonomy. Taxonomies are static JSON files.
+    /// Gets the given taxonomy. Taxonomies are static JSON files.
     ///
     /// # OFF API request
     ///
@@ -158,7 +157,7 @@ where
         self.get(url, None)
     }
 
-    /// Get the given facet.
+    /// Gets the given facet.
     ///
     /// # OFF API request
     ///
@@ -191,7 +190,7 @@ where
         self.get(url, params.as_ref())
     }
 
-    /// Get all the categories.
+    /// Gets all the categories.
     ///
     /// # OFF API request
     ///
@@ -208,7 +207,7 @@ where
         self.get(url, None)
     }
 
-    /// Get the nutrients by country.
+    /// Gets the nutrients by country.
     ///
     /// # OFF API request
     ///
@@ -226,7 +225,7 @@ where
         self.get(url, None)
     }
 
-    /// Get all products for the given facet or category.
+    /// Gets all products for the given facet or category.
     ///
     /// # OFF API request
     ///
@@ -256,7 +255,7 @@ where
     // Read
     // ------------------------------------------------------------------------
 
-    /// Get the nutrition facts of the given product.
+    /// Gets the nutrition facts of the given product.
     ///
     /// # OFF API request
     ///
@@ -275,22 +274,26 @@ where
         let params = output.map(|o| o.params(&["fields"]));
         self.get(url, params.as_ref())
     }
+
+    pub(crate) fn new(v: V, locale: Locale, client: HttpClient) -> Self {
+        Self { v, locale, client }
+    }
 }
 
 impl OffClient<V0> {
-    /// Return the query builder for API V0.
+    /// Returns the query builder for API V0.
     pub fn query(&self) -> SearchQueryV0 {
         SearchQueryV0::new()
     }
 
-    /// Send the search query.
+    /// Sends the given search query.
     pub fn search(&self, query: SearchQueryV0, output: Option<Output>) -> OffResult {
         SearchQueryV0::search(query, self, output)
     }
 }
 
 impl SearchUrl for OffClient<V0> {
-    /// Return the API V0 search URL.
+    /// Returns the API V0 search URL.
     ///  
     /// ```ignore
     /// https://{locale}.openfoodfacts.org/cgi/search.pl?action=process...
@@ -302,17 +305,18 @@ impl SearchUrl for OffClient<V0> {
 }
 
 impl OffClient<V2> {
-    /// Return the query builder for API V2.
+    /// Returns the query builder for API V2.
     pub fn query(&self) -> SearchQueryV2 {
         SearchQueryV2::new()
     }
 
-    /// Send the search query.
+    /// Sends the search query.
     pub fn search(&self, query: SearchQueryV2, output: Option<Output>) -> OffResult {
         SearchQueryV2::search(query, self, output)
     }
 
-    /// List of products.
+    /// Gets the products given in the `barcodes` list as a string of comma-separated
+    /// product barcodes.
     ///
     /// # OFF API request
     ///
@@ -320,13 +324,7 @@ impl OffClient<V2> {
     /// GET https://{locale}.openfoodfacts.org/api/v2/search?code=<code>,<code>,..
     /// ```
     ///
-    /// # Arguments
-    ///
     /// TODO: Support iterator (FromIter ?)
-    /// * `barcodes` - A string with comma-separated barcodes.
-    /// * output - Optional output parameters. This call only supports the locale
-    ///     and fields parameters. TODO: Also pagination ?
-    ///
     pub fn products(&self, barcodes: &str, output: Option<Output>) -> OffResult {
         // Borrow output and extract Option<&Locale>
         let url = self.search_url(output.as_ref().and_then(|o| o.locale.as_ref()))?;
@@ -340,7 +338,7 @@ impl OffClient<V2> {
 }
 
 impl SearchUrl for OffClient<V2> {
-    /// Return the API V2 search URL.
+    /// Returns the API V2 search URL.
     ///  
     /// ```ignore
     /// https://{locale}.openfoodfacts.org/api/v2/search

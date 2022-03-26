@@ -1,5 +1,77 @@
+//! # Openfoodfacts Rust client
+//!
+//! This crate provides two client implementations, one for V0 and one V2 of the API.
+//! Endpoints common to all versions work exactly in the same manner.
+//!
+//! It is recommended to use the V2 client.
+//!
+//! ## Obtaining a client
+//!
+//! In order to obtain an [crate::client::OffClient] of the desired version, one has to obtain
+//! the corresponding builder, set any desired options and build the client. If no options are
+//! set, the builder produces a client with
+//!
+//! * locale: "world"
+//! * auth: None (only needed for write operations)
+//! * user agent: "OffRustClient - {OS name} - Version {lib version} - {github repo URL}"
+//!
+//! ```
+//! use openfoodfacts as off;
+//!
+//! # fn main() -> Result<(), reqwest::Error> {
+//! let client = off::v0().locale(off::Locale::from("fr")).build()?;
+//! # Ok(())
+//! # }
+//! ```
+//!
+//! # Processing client responses
+//!
+//! Contrary to other client implementations, the rust client returns the HTTP response
+//! returned by the OFF server unchanged. It is up to the caller to deserialize the response
+//! in a JSON object that suits its use case.
+//!
+//! ```rust
+//! use openfoodfacts as off;
+//! use std::collections::HashMap;
+//! use serde_json::Value;
+//!
+//! # fn main() -> Result<(), off::OffError> {
+//! let client = off::v2().build().unwrap();
+//! let response = client.products_by(
+//!     "category",
+//!     "cheeses",
+//!     None
+//! )?;
+//! assert!(response.status().is_success());
+//! let json = response.json::<HashMap::<String, Value>>().unwrap();
+//! assert!(!json.is_empty());
+//! # Ok(())
+//! # }
+//! ```
+//!
+//! # Searching
+//!
+//! The search API is version specific. Different methods are implemented per
+//! API version but all versions support the `search` method. It requires as
+//! input a query object, which must be build with the appropriate query
+//! builder.
+//!
+//! ```
+//! use openfoodfacts as off;
+//!
+//! # fn main() -> Result<(), off::OffError> {
+//! let client = off::v2().build().unwrap();
+//! let query = client.query()
+//!     .criteria("brands", "Nestlé", Some("fr"))
+//!     .criteria("categories", "-cheese", None)
+//!     .sort_by(off::search::SortBy::EcoScore);
+//! let response = client.search(query, None)?;
+//! assert!(response.status().is_success());
+//! # Ok(())
+//! # }
+//! ```
 #![allow(dead_code)]
-pub use crate::client::{HttpClient, OffClient, OffResult};
+pub use crate::client::{HttpClient, HttpResponse, OffClient, OffError, OffResult};
 pub use crate::locale::Locale;
 pub use crate::output::Output;
 use crate::types::{Version, V0, V2};
@@ -8,33 +80,41 @@ use std::env::consts::OS;
 mod client;
 mod locale;
 mod output;
-mod search;
+pub mod search;
 mod types;
 
 /// The version of this library.
 pub const VERSION: &str = "alpha";
 
-/// Return a builder to build an OffClient supporting the API V0.
+/// Returns a builder to build an OffClient supporting the API V0.
 ///
 /// ```
 /// use openfoodfacts as off;
-/// let client = off::v0().locale(off::Locale::new("fr", None)).build().unwrap();
+///
+/// # fn main() -> Result<(), reqwest::Error> {
+/// let client = off::v0().locale(off::Locale::new("fr", None)).build()?;
+/// # Ok(())
+/// # }
 /// ```
 pub fn v0() -> OffBuilder<V0> {
     OffBuilder::new(V0 {})
 }
 
-/// Return a builder to build an OffClient supporting the API V2.
+/// Returns a builder to build an OffClient supporting the API V2.
 ///
 /// ```
 /// use openfoodfacts as off;
-/// let client = off::v2().locale(off::Locale::new("fr", None)).build().unwrap();
+///
+/// # fn main() -> Result<(), reqwest::Error> {
+/// let client = off::v2().locale(off::Locale::new("fr", None)).build()?;
+/// # Ok(())
+/// # }
 /// ```
 pub fn v2() -> OffBuilder<V2> {
     OffBuilder::new(V2 {})
 }
 
-// Authentication tuple (username, password).
+/// Authentication tuple (username, password).
 #[derive(Debug, PartialEq)]
 struct Auth(String, String);
 
@@ -56,42 +136,38 @@ impl<V> OffBuilder<V>
 where
     V: Version + Copy,
 {
-    /// Set the default locale.
+    /// Sets the default locale.
     pub fn locale(mut self, value: Locale) -> Self {
         self.locale = value;
         self
     }
 
-    /// Set the authentication credentials.
+    /// Sets the authentication credentials.
     pub fn auth(mut self, username: &str, password: &str) -> Self {
         self.auth = Some(Auth(username.to_string(), password.to_string()));
         self
     }
 
-    /// Set the user agent string.
+    /// Sets the user agent string.
     pub fn user_agent(mut self, user_agent: &str) -> Self {
         self.user_agent = Some(user_agent.to_string());
         self
     }
 
-    /// Create a new OffClient for the <V> version of the API, with the current
-    /// builder options.
-    /// After build() is called, the builder object is invalid.
+    /// Creates a new OffClient for the `V` version of the API, with the current
+    /// builder options. Consumes the builder.
     pub fn build(self) -> Result<OffClient<V>, reqwest::Error> {
         let client = self.build_http_client()?;
         Ok(OffClient::new(self.v, self.locale, client))
     }
 
-    // Create a new builder with defaults:
+    // Creates a new builder for the given API version with the following
+    // defaults:
     //
     // * The default locale is set to `Locale::default()`.
     // * No authentication credentials
     // * The user agent is set to
     //   `OffRustClient - {OS name} - Version {lib version} - {github repo URL}`
-    //
-    // # Arguments:
-    //
-    // * v: A version marker object.
     fn new(v: V) -> Self {
         Self {
             v,

@@ -44,9 +44,9 @@ impl Display for SortBy {
     }
 }
 
-/// Build a search query.
+/// Builds a search query.
 ///
-/// Concrete types must implement the [`QueryParams`] trait.
+/// Concrete types must implement the [crate::search::QueryParams] trait.
 #[derive(Debug, Default)]
 pub struct SearchQuery<S> {
     params: Vec<(String, Value)>,
@@ -80,28 +80,21 @@ impl From<u32> for Value {
     }
 }
 
-/// Convert a SearchQuery<S> object into a [`Params`] object.
+/// Converts a SearchQuery<S> object into a [crate::types::Params] object.
 pub trait QueryParams {
     fn params(&self) -> Params;
 }
 
 impl<S> SearchQuery<S> {
-    /// Set/clear the sorting order.
-    pub fn sort_by(mut self, sort_by: Option<SortBy>) -> Self {
-        self.sort_by = sort_by;
+    /// Sets the sorting order.
+    pub fn sort_by(mut self, sort_by: SortBy) -> Self {
+        self.sort_by = Some(sort_by);
         self
     }
 
-    /// Send the search query. Relies on the client to obtain the versioned
+    /// Sends the search query. Relies on the client to obtain the versioned
     /// search API endpoint and to send the request.
-    ///
-    /// # Arguments:
-    ///
-    /// * params: A concrete SearchQuery object implementing the QueryParams trait.
-    /// * client: A OffClient object implementing the SearchUrl and RequestMethod
-    ///     traits.
-    /// * output: Output parameters.
-    pub fn search(
+    pub(crate) fn search(
         params: impl QueryParams,
         client: &(impl SearchUrl + RequestMethods),
         output: Option<Output>,
@@ -123,17 +116,21 @@ impl<S> SearchQuery<S> {
 ///
 /// # Examples
 ///
-/// ```ignore
-/// use openfoodfacts;
+/// ```
+/// use openfoodfacts as off;
 ///
-/// let client = openfoodfacts::v0().build()?;
+/// # fn main() -> Result<(), off::OffError> {
+/// let client = off::v0().build().unwrap();
 /// let query = client
 ///     .query()
 ///     .criteria("categories", "contains", "cereals")
 ///     .criteria("label", "contains", "kosher")
-///     .ingredient("additives", "without"),
+///     .ingredient("additives", "without")
 ///     .nutrient("energy", "lt", 500);
-/// let response = client.search(query, None);
+/// let response = client.search(query, None)?;
+/// assert!(response.status().is_success());
+/// # Ok(())
+/// # }
 /// ```
 #[derive(Debug, Default)]
 pub struct QueryStateV0 {
@@ -144,13 +141,7 @@ pub struct QueryStateV0 {
 pub type SearchQueryV0 = SearchQuery<QueryStateV0>;
 
 impl SearchQueryV0 {
-    pub fn new() -> Self {
-        Self::default()
-    }
-
-    /// Define a criteria query parameter.
-    ///
-    /// Produces a triplet of pairs
+    /// Defines a criteria query parameter producing a triplet of pairs:
     ///
     /// ```ignore
     /// tagtype_N=<criteria>
@@ -182,9 +173,7 @@ impl SearchQueryV0 {
         self
     }
 
-    /// Define an ingredient query parameter.
-    ///
-    /// Produces a pair
+    /// Defines an ingredient query parameter, producing a pair:
     ///
     /// `<ingredient>=<value>`
     ///
@@ -211,9 +200,8 @@ impl SearchQueryV0 {
         self
     }
 
-    /// Define a nutrient (a.k.a nutriment in the API docs) search parameters.
-    ///
-    /// Produces a triplet of pairs
+    /// Defines a nutrient (a.k.a nutriment in the API docs) search parameter,
+    /// producing a triplet:
     ///
     /// ```ignore
     /// nutriment_N=<nutriment>
@@ -243,6 +231,10 @@ impl SearchQueryV0 {
             Value::from(value),
         ));
         self
+    }
+
+    pub(crate) fn new() -> Self {
+        Self::default()
     }
 }
 
@@ -279,13 +271,7 @@ pub struct QueryStateV2;
 pub type SearchQueryV2 = SearchQuery<QueryStateV2>;
 
 impl SearchQueryV2 {
-    pub fn new() -> Self {
-        Self::default()
-    }
-
-    /// Define a criteria query parameter.
-    ///
-    /// Produces pairs
+    /// Defines a criteria query parameter, producing pairs:
     ///
     /// ```ignore
     /// <criteria>_tags=<value>
@@ -319,15 +305,13 @@ impl SearchQueryV2 {
         self
     }
 
-    /// Define a condition on a nutrient.
-    ///
-    /// Produces a pair
+    /// Defines a condition on a nutrient, producing a pair:
     ///
     /// ```ignore
     /// <nutrient>_<unit>=<value>
     /// ```
     ///
-    /// if `op` is "=", otherwise produces a non-valued parameter
+    /// if `op` is "=", otherwise produces a non-valued parameter:
     ///
     /// ```ignore
     /// <nutient>_<unit><op><value>
@@ -364,6 +348,10 @@ impl SearchQueryV2 {
     /// Convenience method to add a nutrient condition per serving.
     pub fn nutrient_serving(self, nutrient: &str, op: &str, value: u32) -> Self {
         self.nutrient(nutrient, "serving", op, value)
+    }
+
+    pub(crate) fn new() -> Self {
+        Self::default()
     }
 }
 

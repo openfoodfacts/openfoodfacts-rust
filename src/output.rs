@@ -4,25 +4,22 @@ use crate::locale::Locale;
 use crate::types::Params;
 
 /// General output parameters. Not all API methods support all parameters.
-/// None values indicate that the parameter will be excluded from
-/// the query parameters.
+/// None values indicate that the parameter will be excluded from the
+/// query parameters.
 ///
 /// # Constructors
 ///
-/// There is only the `default()` construtor to build an empty output object:
-///
-/// ```ignore
-/// let output = Locale::default();
-/// ```
-///
+/// There is only the `default()` construtor to build an empty output object.
 /// Output objects are better created using the struct update syntax:
 ///
-/// ```ignore
-/// let output = Output {
-///     locale: Some(Locale::new("fr", None)),
+/// ```
+/// use openfoodfacts as off;
+///
+/// let output = off::Output {
+///     locale: Some(off::Locale::new("fr", None)),
 ///     page: Some(1),
-///     ..Output::default()
-/// }
+///     ..off::Output::default()
+/// };
 /// ```
 #[derive(Debug, Default)]
 pub struct Output {
@@ -34,13 +31,10 @@ pub struct Output {
 }
 
 impl Output {
-    /// Return an array of pairs ("name", "value") denoting query parameters.
-    ///
-    /// # Arguments
-    ///
-    /// * names - A sequence of parameter names. These match the names of the
-    ///     fields in the Output structure (i.e. "page" refers to the `Output::page`)
-    ///     field).
+    /// Returns an array of pairs ("name", "value") representing query parameters.
+    /// If `names` is given, it must be a sequence of parameter names. These match
+    /// the names of the fields in the Output structure (i.e. "page" refers to the
+    /// `Output::page` field).
     ///
     /// Note that:
     ///

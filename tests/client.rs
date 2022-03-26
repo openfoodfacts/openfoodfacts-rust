@@ -235,15 +235,3 @@ fn search_v2() {
     assert_eq!(response.url().path(), "/api/v2/search");
     assert_eq!(response.status().is_success(), true);
 }
-
-// Use/keep as example.
-//
-// use std::collections::HashMap;
-// use serde_json::Value;
-//
-// #[test]
-// fn test_off_json() {
-//   let off = client().unwrap();
-//   let response = off.category("cheeses", Some("gr")).unwrap();
-//   println!("JSON: {:?}", response.json::<HashMap::<String, Value>>().unwrap());
-// }
