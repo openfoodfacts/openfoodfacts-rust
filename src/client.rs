@@ -1,9 +1,9 @@
-pub use reqwest::blocking::{Client as HttpClient, Response as HttpResponse};
-use url::{ParseError, Url};
-
-use crate::output::{Locale, Output};
+use crate::locale::Locale;
+use crate::output::Output;
 use crate::search::{SearchQueryV0, SearchQueryV2};
 use crate::types::{Params, Version, V0, V2};
+pub use reqwest::blocking::{Client as HttpClient, Response as HttpResponse};
+use url::{ParseError, Url};
 
 /// The return type of all OffClient methods.
 pub type OffResult = Result<HttpResponse, Box<dyn std::error::Error>>;
@@ -135,7 +135,7 @@ where
     ///
     /// `GET https://world.openfoodfacts.org/data/taxonomies/{taxonomy}.json`
     ///
-    /// Taxomonies support only the locale "world".
+    /// Taxonomies support only the locale "world".
     ///
     /// # Arguments
     ///
@@ -151,7 +151,7 @@ where
     ///     - nova_groups (*)
     ///     - nutrient_levels (*)
     ///     - states
-    /// (*) Only taxomomy. There is no facet equivalent.
+    /// (*) Only taxonomy. There is no facet equivalent.
     pub fn taxonomy(&self, taxonomy: &str) -> OffResult {
         let base_url = self.base_url_world()?; // force world locale.
         let url = base_url.join(&format!("data/taxonomies/{}.json", taxonomy))?;
