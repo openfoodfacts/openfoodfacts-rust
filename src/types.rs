@@ -2,7 +2,8 @@ use std::vec::Vec;
 
 /// Query parameters. A vector of pairs (name, value) where
 /// both name and value are strings. Params objects are produced
-/// by the [`Output`] and [`Search`] objects.
+/// by the [crate::output::Output] and objects implementing the
+/// [crate::search::QueryParams] trait.
 pub type Params<'a> = Vec<(&'a str, String)>;
 
 /// Marker for objects implementing the openfoodfacts API V0.

@@ -141,9 +141,9 @@ pub struct QueryStateV0 {
 pub type SearchQueryV0 = SearchQuery<QueryStateV0>;
 
 impl SearchQueryV0 {
-    /// Defines a criteria query parameter producing a triplet of pairs:
+    /// Defines a criteria query parameter producing a triplet of pairs
     ///
-    /// ```ignore
+    /// ```code
     /// tagtype_N=<criteria>
     /// tag_contains_N=<op>
     /// tag_N=<value>
@@ -173,7 +173,7 @@ impl SearchQueryV0 {
         self
     }
 
-    /// Defines an ingredient query parameter, producing a pair:
+    /// Defines an ingredient query parameter, producing a pair
     ///
     /// `<ingredient>=<value>`
     ///
@@ -201,13 +201,14 @@ impl SearchQueryV0 {
     }
 
     /// Defines a nutrient (a.k.a nutriment in the API docs) search parameter,
-    /// producing a triplet:
+    /// producing a triplet of pairs
     ///
-    /// ```ignore
+    /// ```code
     /// nutriment_N=<nutriment>
     /// nutriment_compare_N=<op>
     /// nutriment_value_N=<quantity>
     /// ```
+    ///
     /// # Arguments
     ///
     /// * nutrient - The nutrient name. See the [`API docs`].
@@ -271,17 +272,13 @@ pub struct QueryStateV2;
 pub type SearchQueryV2 = SearchQuery<QueryStateV2>;
 
 impl SearchQueryV2 {
-    /// Defines a criteria query parameter, producing pairs:
+    /// Defines a criteria query parameter, producing pairs
     ///
-    /// ```ignore
-    /// <criteria>_tags=<value>
-    /// ```
+    /// `<criteria>_tags=<value>`
     ///
     /// or
     ///
-    /// ```ignore
-    /// <criteria>_tags_<lc>= <value>
-    /// ```
+    /// `<criteria>_tags_<lc>= <value>`
     ///
     /// if a language code has been given.
     ///
@@ -305,17 +302,13 @@ impl SearchQueryV2 {
         self
     }
 
-    /// Defines a condition on a nutrient, producing a pair:
+    /// Defines a condition on a nutrient, producing a pair
     ///
-    /// ```ignore
-    /// <nutrient>_<unit>=<value>
-    /// ```
+    /// `<nutrient>_<unit>=<value>`
     ///
     /// if `op` is "=", otherwise produces a non-valued parameter:
     ///
-    /// ```ignore
-    /// <nutient>_<unit><op><value>
-    /// ```
+    /// `<nutient>_<unit><op><value>`
     ///
     /// # Arguments
     ///

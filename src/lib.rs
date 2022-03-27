@@ -16,10 +16,10 @@
 //! * user agent: "OffRustClient - {OS name} - Version {lib version} - {github repo URL}"
 //!
 //! ```
-//! use openfoodfacts as off;
+//! use openfoodfacts::{self as off, Locale};
 //!
 //! # fn main() -> Result<(), reqwest::Error> {
-//! let client = off::v0().locale(off::Locale::from("fr")).build()?;
+//! let client = off::v0().locale(Locale::from("fr")).build()?;
 //! # Ok(())
 //! # }
 //! ```

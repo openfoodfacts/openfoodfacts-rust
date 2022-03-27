@@ -38,13 +38,11 @@ fn facet() {
 #[test]
 fn facet_params() {
     let client = off::v0().build().unwrap();
-    let output = Output {
-        locale: Some(Locale::new("fr", None)),
-        page: Some(22),
-        fields: Some("url"),
-        nocache: Some(true),
-        ..Output::default()
-    };
+    let output = Output::new()
+        .locale(Locale::new("fr", None))
+        .page(22)
+        .fields("url")
+        .nocache(true);
     let response = client.facet("brands", Some(output)).unwrap();
     assert_eq!(
         response.url().as_str(),
@@ -68,11 +66,7 @@ fn categories() {
 fn categories_params() {
     let client = off::v0().build().unwrap();
     // Accepts only the locale parameter.
-    let output = Output {
-        locale: Some(Locale::new("fr", None)),
-        page: Some(22),
-        ..Output::default()
-    };
+    let output = Output::new().locale(Locale::new("fr", None)).page(22);
     let response = client.categories(Some(output)).unwrap();
     assert_eq!(
         response.url().as_str(),
@@ -96,11 +90,7 @@ fn nutrients() {
 fn nutrients_params() {
     let client = off::v0().build().unwrap();
     // Accepts only the locale parameter.
-    let output = Output {
-        locale: Some(Locale::new("fr", None)),
-        page: Some(22),
-        ..Output::default()
-    };
+    let output = Output::new().locale(Locale::new("fr", None)).page(22);
     let response = client.nutrients(Some(output)).unwrap();
     assert_eq!(
         response.url().as_str(),
@@ -125,13 +115,10 @@ fn products_by_facet() {
 #[test]
 fn products_by_facet_params() {
     let client = off::v0().build().unwrap();
-    let output = Output {
-        locale: Some(Locale::new("fr", None)),
-        page: Some(22),
-        page_size: Some(20),
-        fields: Some("url"),
-        ..Output::default()
-    };
+    let output = Output::new()
+        .locale(Locale::new("fr", None))
+        .pagination(22, 20)
+        .fields("url");
     let response = client
         .products_by("additif", "e322-lecithines", Some(output))
         .unwrap();
@@ -156,13 +143,10 @@ fn products_by_category() {
 #[test]
 fn products_by_category_params() {
     let client = off::v0().build().unwrap();
-    let output = Output {
-        locale: Some(Locale::new("fr", None)),
-        page: Some(22),
-        page_size: Some(20),
-        fields: Some("url"),
-        ..Output::default()
-    };
+    let output = Output::new()
+        .locale(Locale::new("fr", None))
+        .pagination(22, 20)
+        .fields("url");
     let response = client
         .products_by("categorie", "fromages", Some(output))
         .unwrap();
@@ -189,13 +173,10 @@ fn product() {
 fn product_params() {
     let client = off::v0().build().unwrap();
     // Accepts only the locale and fields parameters.
-    let output = Output {
-        locale: Some(Locale::new("fr", None)),
-        page: Some(22),
-        page_size: Some(20),
-        fields: Some("url"),
-        ..Output::default()
-    };
+    let output = Output::new()
+        .locale(Locale::new("fr", None))
+        .pagination(22, 20)
+        .fields("url");
     let response = client.product("069000019832", Some(output)).unwrap(); // 069000019832 = Diet Pepsi
     assert_eq!(
         response.url().as_str(),

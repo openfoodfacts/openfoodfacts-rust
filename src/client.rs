@@ -194,9 +194,7 @@ where
     ///
     /// # OFF API request
     ///
-    /// ```ignore
-    /// GET https://world.openfoodfacts.org/categories.json
-    /// ```
+    /// `GET https://world.openfoodfacts.org/categories.json`
     ///
     /// # Arguments
     ///
@@ -211,9 +209,7 @@ where
     ///
     /// # OFF API request
     ///
-    /// ```ignore
-    /// GET https://{locale}.openfoodfacts.org/cgi/nutrients.pl
-    /// ```
+    /// `GET https://{locale}.openfoodfacts.org/cgi/nutrients.pl`
     ///
     /// # Arguments
     ///
@@ -229,9 +225,7 @@ where
     ///
     /// # OFF API request
     ///
-    /// ```ignore
-    /// GET https://{locale}.openfoodfacts.org/{facet}/{value}.json
-    /// ```
+    /// `GET https://{locale}.openfoodfacts.org/{facet}/{value}.json`
     ///
     /// # Arguments
     ///
@@ -259,9 +253,7 @@ where
     ///
     /// # OFF API request
     ///
-    /// ```ignore
-    /// GET https://{locale}.openfoodfacts.org/api/{version}/product/{barcode}
-    /// ```
+    /// `GET https://{locale}.openfoodfacts.org/api/{version}/product/{barcode}`
     ///
     /// # Arguments
     ///
@@ -295,9 +287,7 @@ impl OffClient<V0> {
 impl SearchUrl for OffClient<V0> {
     /// Returns the API V0 search URL.
     ///  
-    /// ```ignore
-    /// https://{locale}.openfoodfacts.org/cgi/search.pl?action=process...
-    /// ```
+    /// `https://{locale}.openfoodfacts.org/cgi/search.pl`
     fn search_url(&self, locale: Option<&Locale>) -> std::result::Result<Url, ParseError> {
         let cgi_url = self.cgi_url(locale)?;
         cgi_url.join("search.pl")
@@ -320,9 +310,7 @@ impl OffClient<V2> {
     ///
     /// # OFF API request
     ///
-    /// ```ignore
-    /// GET https://{locale}.openfoodfacts.org/api/v2/search?code=<code>,<code>,..
-    /// ```
+    /// `GET https://{locale}.openfoodfacts.org/api/v2/search?code=<code>,<code>,..`
     ///
     /// TODO: Support iterator (FromIter ?)
     pub fn products(&self, barcodes: &str, output: Option<Output>) -> Result {
@@ -340,9 +328,7 @@ impl OffClient<V2> {
 impl SearchUrl for OffClient<V2> {
     /// Returns the API V2 search URL.
     ///  
-    /// ```ignore
-    /// https://{locale}.openfoodfacts.org/api/v2/search
-    /// ```
+    /// `https://{locale}.openfoodfacts.org/api/v2/search`
     fn search_url(&self, locale: Option<&Locale>) -> std::result::Result<Url, ParseError> {
         // Return the API URL with the locale given in Output::locale.
         let api_url = self.api_url(locale)?;
