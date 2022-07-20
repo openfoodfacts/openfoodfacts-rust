@@ -1,14 +1,34 @@
+use crate::client::{RequestMethods, Result, SearchUrl};
+use crate::output::Output;
+use crate::types::Params;
 use std::fmt::{self, Display, Formatter};
 
-use crate::types::{ApiVersion, Params};
-
-/// Sorting criteria
+/// Sorting criteria.
+///
+/// # Variants:
+///
+/// * Popularity - Number of unique scans.
+/// * Product name - Product name, alphabetical.
+/// * CreatedDate - Add date.
+/// * LastModifiedDate - Last edit date.
+/// * EcoScore - Eco score.
+///
+/// TODO:
+/// last_modified_t_complete_first
+/// scans_n
+/// completeness
+/// popularity_key
+/// popularity
+/// nutriscore_score
+/// nova_score
+/// nothing
 #[derive(Debug)]
 pub enum SortBy {
     Popularity,
     ProductName,
     CreatedDate,
     LastModifiedDate,
+    EcoScore,
 }
 
 impl Display for SortBy {
@@ -18,31 +38,24 @@ impl Display for SortBy {
             Self::ProductName => "product_name",
             Self::CreatedDate => "created_t",
             Self::LastModifiedDate => "last_modified_t",
+            Self::EcoScore => "ecoscore_score",
         };
         write!(f, "{}", sort)
     }
 }
 
-/// Implemented by Search objects.
-pub trait SearchParams {
-    fn params(&self) -> Params;
+/// Builds a search query.
+///
+/// Concrete types must implement the [crate::search::QueryParams] trait.
+#[derive(Debug, Default)]
+pub struct SearchQuery<S> {
+    params: Vec<(String, Value)>,
+    sort_by: Option<SortBy>,
+    state: S,
 }
 
-/// The search query builder. Produces an object implementing the trait SearchParams
-/// that can be passed to OffClient::search(). The constructor expects the ApiVersion
-/// number, used to select which implementation to return.
-pub struct Search;
-
-impl Search {
-    pub fn new(version: ApiVersion) -> impl SearchParams {
-        match version {
-            ApiVersion::V0 => SearchParamsV0::new(),
-            _ => panic!("Not implemented"), // TODO: ApiVersion::V2 => SearchParamsV2::new(),
-        }
-    }
-}
-
-// The internal representation of a search parameter value.
+// The internal representation of a search query parameter value.
+#[derive(Debug)]
 enum Value {
     String(String),
     Number(u32),
@@ -67,46 +80,70 @@ impl From<u32> for Value {
     }
 }
 
+/// Converts a SearchQuery<S> object into a [crate::types::Params] object.
+pub trait QueryParams {
+    fn params(&self) -> Params;
+}
+
+impl<S> SearchQuery<S> {
+    /// Sets the sorting order.
+    pub fn sort_by(mut self, sort_by: SortBy) -> Self {
+        self.sort_by = Some(sort_by);
+        self
+    }
+
+    /// Sends the search query. Relies on the client to obtain the versioned
+    /// search API endpoint and to send the request.
+    pub(crate) fn search(
+        params: impl QueryParams,
+        client: &(impl SearchUrl + RequestMethods),
+        output: Option<Output>,
+    ) -> Result {
+        let url = client.search_url(output.as_ref().and_then(|o| o.locale.as_ref()))?;
+        let mut params = params.params();
+        if let Some(output_params) = output.map(|o| o.params(&["fields"])) {
+            params.extend(output_params);
+        }
+        client.get(url, Some(&params))
+    }
+}
+
 // ----------------------------------------------------------------------------
-// Search V0
+// SearchQuery V0
 // ----------------------------------------------------------------------------
 
-/// Search parameters.
+/// A search query builder for the Search API V0.
 ///
 /// # Examples
 ///
-/// ```ignore
-/// let query = Query::new()
+/// ```
+/// use openfoodfacts as off;
+///
+/// # fn main() -> Result<(), off::Error> {
+/// let client = off::v0().build().unwrap();
+/// let query = client
+///     .query()
 ///     .criteria("categories", "contains", "cereals")
 ///     .criteria("label", "contains", "kosher")
-///     .ingredient("additives", "without"),
+///     .ingredient("additives", "without")
 ///     .nutrient("energy", "lt", 500);
+/// let response = client.search(query, None)?;
+/// assert!(response.status().is_success());
+/// # Ok(())
+/// # }
 /// ```
-/// TODO: Rename as Filters ?
-pub struct SearchParamsV0 {
-    params: Vec<(String, Value)>,
+#[derive(Debug, Default)]
+pub struct QueryStateV0 {
     criteria_index: u32,
     nutrient_index: u32,
-    sort_by: Option<SortBy>,
 }
 
-// TODO: Use refs for strings ?
-impl SearchParamsV0 {
-    /// Create a new, empty search parameters.
-    pub fn new() -> Self {
-        Self {
-            params: Vec::new(),
-            criteria_index: 0,
-            nutrient_index: 0,
-            sort_by: None,
-        }
-    }
+pub type SearchQueryV0 = SearchQuery<QueryStateV0>;
 
-    /// Define a criteria query parameter.
+impl SearchQueryV0 {
+    /// Defines a criteria query parameter producing a triplet of pairs
     ///
-    /// Produces a triplet of pairs
-    ///
-    /// ```ignore
+    /// ```code
     /// tagtype_N=<criteria>
     /// tag_contains_N=<op>
     /// tag_N=<value>
@@ -119,24 +156,24 @@ impl SearchParamsV0 {
     /// * value - The searched criteria value.
     ///
     /// [`API docs`]: https://openfoodfacts.github.io/api-documentation/#5Filtering
-    pub fn criteria(&mut self, criteria: &str, op: &str, value: &str) -> &mut Self {
-        self.criteria_index += 1;
+    pub fn criteria(mut self, criteria: &str, op: &str, value: &str) -> Self {
+        self.state.criteria_index += 1;
         self.params.push((
-            format!("tagtype_{}", self.criteria_index),
+            format!("tagtype_{}", self.state.criteria_index),
             Value::from(criteria),
         ));
         self.params.push((
-            format!("tag_contains_{}", self.criteria_index),
+            format!("tag_contains_{}", self.state.criteria_index),
             Value::from(op),
         ));
-        self.params
-            .push((format!("tag_{}", self.criteria_index), Value::from(value)));
+        self.params.push((
+            format!("tag_{}", self.state.criteria_index),
+            Value::from(value),
+        ));
         self
     }
 
-    /// Define an ingredient query parameter.
-    ///
-    /// Produces a pair
+    /// Defines an ingredient query parameter, producing a pair
     ///
     /// `<ingredient>=<value>`
     ///
@@ -152,7 +189,7 @@ impl SearchParamsV0 {
     /// If `ingredient` is "additives", the values "with", "without" and "indiferent"
     /// are converted to "with_additives", "without_additives" and "indifferent_additives"
     /// respectively.
-    pub fn ingredient(&mut self, ingredient: &str, value: &str) -> &mut Self {
+    pub fn ingredient(mut self, ingredient: &str, value: &str) -> Self {
         self.params.push((
             String::from(ingredient),
             match ingredient {
@@ -163,15 +200,15 @@ impl SearchParamsV0 {
         self
     }
 
-    /// Define a nutrient (a.k.a nutriment in the API docs) search parameters.
+    /// Defines a nutrient (a.k.a nutriment in the API docs) search parameter,
+    /// producing a triplet of pairs
     ///
-    /// Produces a triplet of pairs
-    ///
-    /// ```ignore
+    /// ```code
     /// nutriment_N=<nutriment>
     /// nutriment_compare_N=<op>
     /// nutriment_value_N=<quantity>
     /// ```
+    ///
     /// # Arguments
     ///
     /// * nutrient - The nutrient name. See the [`API docs`].
@@ -180,31 +217,29 @@ impl SearchParamsV0 {
     /// * value - The value to compare.
     ///
     /// [`API docs`]: https://openfoodfacts.github.io/api-documentation/#5Filtering
-    pub fn nutrient(&mut self, nutriment: &str, op: &str, value: u32) -> &mut Self {
-        self.nutrient_index += 1;
+    pub fn nutrient(mut self, nutriment: &str, op: &str, value: u32) -> Self {
+        self.state.nutrient_index += 1;
         self.params.push((
-            format!("nutriment_{}", self.nutrient_index),
+            format!("nutriment_{}", self.state.nutrient_index),
             Value::from(nutriment),
         ));
         self.params.push((
-            format!("nutriment_compare_{}", self.nutrient_index),
+            format!("nutriment_compare_{}", self.state.nutrient_index),
             Value::from(op),
         ));
         self.params.push((
-            format!("nutriment_value_{}", self.nutrient_index),
+            format!("nutriment_value_{}", self.state.nutrient_index),
             Value::from(value),
         ));
         self
     }
 
-    /// Set/clear the sorting order.
-    pub fn sort_by(&mut self, sort_by: Option<SortBy>) -> &mut Self {
-        self.sort_by = sort_by;
-        self
+    pub(crate) fn new() -> Self {
+        Self::default()
     }
 }
 
-impl SearchParams for SearchParamsV0 {
+impl QueryParams for SearchQueryV0 {
     fn params(&self) -> Params {
         let mut params: Params = Vec::new();
         for (name, value) in &self.params {
@@ -228,35 +263,22 @@ impl SearchParams for SearchParamsV0 {
 }
 
 // ----------------------------------------------------------------------------
-// Search V2
+// Search Query V2
 // ----------------------------------------------------------------------------
 
-pub struct SearchParamsV2 {
-    params: Vec<(String, Value)>,
-    sort_by: Option<SortBy>,
-}
+#[derive(Debug, Default)]
+pub struct QueryStateV2;
 
-impl SearchParamsV2 {
-    pub fn new() -> Self {
-        SearchParamsV2 {
-            params: Vec::new(),
-            sort_by: None,
-        }
-    }
+pub type SearchQueryV2 = SearchQuery<QueryStateV2>;
 
-    /// Define a criteria query parameter.
+impl SearchQueryV2 {
+    /// Defines a criteria query parameter, producing pairs
     ///
-    /// Produces pairs
-    ///
-    /// ```ignore
-    /// <criteria>_tags=<value>
-    /// ```
+    /// `<criteria>_tags=<value>`
     ///
     /// or
     ///
-    /// ```ignore
-    /// <criteria>_tags_<lc>= <value>
-    /// ```
+    /// `<criteria>_tags_<lc>= <value>`
     ///
     /// if a language code has been given.
     ///
@@ -269,7 +291,7 @@ impl SearchParamsV2 {
     ///
     /// [`openfoodfacts API docs`]: https://openfoodfacts.github.io/api-documentation/#5Filtering
     /// [`Search V2 API docs`]: https://wiki.openfoodfacts.org/Open_Food_Facts_Search_API_Version_2
-    pub fn criteria(&mut self, criteria: &str, value: &str, lc: Option<&str>) -> &mut Self {
+    pub fn criteria(mut self, criteria: &str, value: &str, lc: Option<&str>) -> Self {
         if let Some(lc) = lc {
             self.params
                 .push((format!("{}_tags_{}", criteria, lc), Value::from(value)));
@@ -280,19 +302,13 @@ impl SearchParamsV2 {
         self
     }
 
-    /// Define a condition on a nutrient.
+    /// Defines a condition on a nutrient, producing a pair
     ///
-    /// Produces a pair
+    /// `<nutrient>_<unit>=<value>`
     ///
-    /// ```ignore
-    /// <nutrient>_<unit>=<value>
-    /// ```
+    /// if `op` is "=", otherwise produces a non-valued parameter:
     ///
-    /// if `op` is "=", otherwise produces a non-valued parameter
-    ///
-    /// ```ignore
-    /// <nutient>_<unit><op><value>
-    /// ```
+    /// `<nutient>_<unit><op><value>`
     ///
     /// # Arguments
     ///
@@ -306,7 +322,7 @@ impl SearchParamsV2 {
     ///
     /// [`API docs`]: https://openfoodfacts.github.io/api-documentation/#5Filtering
     /// [`Search V2 API docs`]: https://wiki.openfoodfacts.org/Open_Food_Facts_Search_API_Version_2
-    pub fn nutrient(&mut self, nutrient: &str, unit: &str, op: &str, value: u32) -> &mut Self {
+    pub fn nutrient(mut self, nutrient: &str, unit: &str, op: &str, value: u32) -> Self {
         let param = match op {
             "=" => (format!("{}_{}", nutrient, unit), Value::from(value)),
             // The name and value becomes the param name. TODO: Check HTTP specs if <, >, etc supported
@@ -318,24 +334,21 @@ impl SearchParamsV2 {
     }
 
     /// Convenience method to add a nutrient condition per 100 grams.
-    pub fn nutrient_100g(&mut self, nutrient: &str, op: &str, value: u32) -> &mut Self {
+    pub fn nutrient_100g(self, nutrient: &str, op: &str, value: u32) -> Self {
         self.nutrient(nutrient, "100g", op, value)
     }
 
     /// Convenience method to add a nutrient condition per serving.
-    pub fn nutrient_serving(&mut self, nutrient: &str, op: &str, value: u32) -> &mut Self {
+    pub fn nutrient_serving(self, nutrient: &str, op: &str, value: u32) -> Self {
         self.nutrient(nutrient, "serving", op, value)
     }
 
-    /// TODO: Supported ?
-    /// Set/clear the sorting order.
-    pub fn sort_by(&mut self, sort_by: Option<SortBy>) -> &mut Self {
-        self.sort_by = sort_by;
-        self
+    pub(crate) fn new() -> Self {
+        Self::default()
     }
 }
 
-impl SearchParams for SearchParamsV2 {
+impl QueryParams for SearchQueryV2 {
     fn params(&self) -> Params {
         let mut params: Params = Vec::new();
         for (name, value) in &self.params {
@@ -380,9 +393,8 @@ mod tests_search_v0 {
     use super::*;
 
     #[test]
-    fn search_params() {
-        let mut search = SearchParamsV0::new();
-        search
+    fn query_params() {
+        let query = SearchQueryV0::new()
             .criteria("brands", "contains", "Nestlé")
             .criteria("categories", "does_not_contain", "cheese")
             .ingredient("additives", "without")
@@ -390,7 +402,7 @@ mod tests_search_v0 {
             .nutrient("fiber", "lt", 500)
             .nutrient("salt", "gt", 100);
 
-        let params = search.params();
+        let params = query.params();
         assert_eq!(
             &params,
             &[
@@ -424,8 +436,7 @@ mod tests_search_v2 {
 
     #[test]
     fn search_params() {
-        let mut search = SearchParamsV2::new();
-        search
+        let query = SearchQueryV2::new()
             .criteria("brands", "Nestlé", Some("fr"))
             .criteria("categories", "-cheese", None)
             // TODO ?
@@ -434,7 +445,7 @@ mod tests_search_v2 {
             .nutrient_100g("fiber", "<", 500)
             .nutrient_serving("salt", "=", 100);
 
-        let params = search.params();
+        let params = query.params();
         assert_eq!(
             &params,
             &[
