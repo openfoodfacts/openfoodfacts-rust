@@ -19,12 +19,12 @@ jobs:
 
       - name: Create Index File
         run: |
-          rm -rf ./docs
+          rm -rf ./doc/api
           echo "<meta http-equiv=\"refresh\" content=\"0; url=openfoodfacts\">" > target/doc/index.html
-          cp -r target/doc ./docs
-          
+          cp -r target/doc ./doc/api
+
       - name: Deploy API documentation to Github Pages
         uses: JamesIves/github-pages-deploy-action@v4.4.1
         with:
           BRANCH: gh-pages
-          FOLDER: docs/
+          FOLDER: doc/api/
