@@ -1,0 +1,30 @@
+name: GitHub Pages Deploy Action
+on:
+  push:
+    branches:
+      - "develop"
+jobs:
+  deploy-pages:
+    name: Deploy to GitHub Pages
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    if: github.repository_owner  == 'openfoodfacts'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Run RustDoc
+        run: cargo doc --release --no-deps
+
+      - name: Create Index File
+        run: |
+          rm -rf ./doc/api
+          echo "<meta http-equiv=\"refresh\" content=\"0; url=openfoodfacts\">" > target/doc/index.html
+          cp -r target/doc ./doc/api
+
+      - name: Deploy API documentation to Github Pages
+        uses: JamesIves/github-pages-deploy-action@v4.4.1
+        with:
+          BRANCH: gh-pages
+          FOLDER: doc/api/
