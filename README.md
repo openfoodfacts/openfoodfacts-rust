@@ -106,3 +106,8 @@ let query = client
 
 ## Third party applications
 If you use this SDK, feel free to open a PR to add your application in this list.
+
+
+## Contributors
+
+[![Drag Racing](https://contrib.rocks/image?repo=openfoodfacts/openfoodfacts-rust)](https://github.com/openfoodfacts/openfoodfacts-rust/graphs/contributors)
