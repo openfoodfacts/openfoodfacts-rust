@@ -14,3 +14,10 @@ updates:
   commit-message:
     prefix: "chore"
     include: "scope"
+- package-ecosystem: 	rust-toolchain
+  directory: "/"
+  schedule:
+    interval: daily
+  commit-message:
+    prefix: "chore"
+    include: "scope"
