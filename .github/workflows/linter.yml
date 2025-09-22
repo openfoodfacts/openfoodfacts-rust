@@ -16,10 +16,10 @@ name: Lint Code Base
 #############################
 on:
   push:
-    branches-ignore: [master, main]
-    # Remove the line above to run when pushing to master
+    branches-ignore: [develop, main]
+    # Remove the line above to run when pushing to develop
   pull_request:
-    branches: [master, main]
+    branches: [develop, main]
 
 ###############
 # Set the Job #
@@ -53,5 +53,5 @@ jobs:
           VALIDATE_ALL_CODEBASE: true
           VALIDATE_RUST_CLIPPY: true
           VALIDATE_RUST_2021: true
-          DEFAULT_BRANCH: master
+          DEFAULT_BRANCH: develop
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
