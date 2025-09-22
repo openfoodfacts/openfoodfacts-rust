@@ -82,7 +82,7 @@ impl From<u32> for Value {
 
 /// Converts a SearchQuery<S> object into a [crate::types::Params] object.
 pub trait QueryParams {
-    fn params(&self) -> Params;
+    fn params(&self) -> Params<'_>;
 }
 
 impl<S> SearchQuery<S> {
@@ -213,7 +213,7 @@ impl SearchQueryV0 {
     ///
     /// * nutrient - The nutrient name. See the [`API docs`].
     /// * op - The comparation operation to perform. One of "lt", "lte", "gt", "gte",
-    ///        "eq".
+    ///   "eq".
     /// * value - The value to compare.
     ///
     /// [`API docs`]: https://openfoodfacts.github.io/api-documentation/#5Filtering
@@ -240,7 +240,7 @@ impl SearchQueryV0 {
 }
 
 impl QueryParams for SearchQueryV0 {
-    fn params(&self) -> Params {
+    fn params(&self) -> Params<'_> {
         let mut params: Params = Vec::new();
         for (name, value) in &self.params {
             let v = match value {
@@ -286,7 +286,7 @@ impl SearchQueryV2 {
     ///
     /// * criteria - A valid criteria name. See the [`API docs`].
     /// * value - The criteria value. Use comma for AND, colon for OR and tilde for NOT.
-    ///     See the [`Search V2 API docs`].
+    ///   See the [`Search V2 API docs`].
     /// * lc: Optional language code.
     ///
     /// [`openfoodfacts API docs`]: https://openfoodfacts.github.io/api-documentation/#5Filtering
@@ -315,7 +315,7 @@ impl SearchQueryV2 {
     /// * nutrient - The nutrient name. See the [`API docs`].
     /// * unit - One of the "100g" or "serving".
     /// * op - A comparison operator. One of  '=', '<', '>', `<=', '=>`.
-    ///     See the [`Search V2 API docs`].
+    ///   See the [`Search V2 API docs`].
     /// * value - The value to compare.
     ///
     /// TODO: Verify the <= and => operators.
@@ -349,7 +349,7 @@ impl SearchQueryV2 {
 }
 
 impl QueryParams for SearchQueryV2 {
-    fn params(&self) -> Params {
+    fn params(&self) -> Params<'_> {
         let mut params: Params = Vec::new();
         for (name, value) in &self.params {
             let v = match value {
