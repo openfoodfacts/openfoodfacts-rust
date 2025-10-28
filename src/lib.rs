@@ -98,7 +98,7 @@ pub const VERSION: &str = "alpha";
 /// # Ok(())
 /// # }
 /// ```
-#[must_use] 
+#[must_use]
 pub fn v0() -> OffBuilder<V0> {
     OffBuilder::new(V0 {})
 }
@@ -113,7 +113,7 @@ pub fn v0() -> OffBuilder<V0> {
 /// # Ok(())
 /// # }
 /// ```
-#[must_use] 
+#[must_use]
 pub fn v2() -> OffBuilder<V2> {
     OffBuilder::new(V2 {})
 }

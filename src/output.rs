@@ -27,32 +27,32 @@ pub struct Output {
 
 impl Output {
     /// Creates a new Output object with defaults (all None).
-    #[must_use] 
+    #[must_use]
     pub fn new() -> Self {
         Self::default()
     }
 
     /// Sets the locale field.
-    #[must_use] 
+    #[must_use]
     pub fn locale(mut self, locale: Locale) -> Self {
         self.locale = Some(locale);
         self
     }
 
     /// Sets the page and `page_size` fields.
-    #[must_use] 
+    #[must_use]
     pub fn pagination(self, page: usize, page_size: usize) -> Self {
         self.page(page).page_size(page_size)
     }
     /// Sets the page field.
-    #[must_use] 
+    #[must_use]
     pub fn page(mut self, page: usize) -> Self {
         self.page = Some(page);
         self
     }
 
     /// Sets the page field.
-    #[must_use] 
+    #[must_use]
     pub fn page_size(mut self, page_size: usize) -> Self {
         self.page_size = Some(page_size);
         self
@@ -60,14 +60,14 @@ impl Output {
 
     /// Sets the fields field. Must be a str slice with comma-separated field names.
     /// Sets fields to None if the slice is empty.
-    #[must_use] 
+    #[must_use]
     pub fn fields(mut self, fields: &'static str) -> Self {
         self.fields = Some(fields).filter(|t| !t.is_empty());
         self
     }
 
     /// Sets the nocache field.
-    #[must_use] 
+    #[must_use]
     pub fn nocache(mut self, nocache: bool) -> Self {
         self.nocache = Some(nocache);
         self
@@ -85,7 +85,7 @@ impl Output {
     /// * Repeated names are ignored.
     /// * Callers should only request the parameters that are supported by the target
     ///   API call.
-    #[must_use] 
+    #[must_use]
     pub fn params<'a>(&self, names: &[&'a str]) -> Params<'a> {
         let mut added: Vec<&str> = Vec::new();
         let mut params: Params = Vec::new();

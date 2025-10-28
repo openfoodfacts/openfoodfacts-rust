@@ -300,7 +300,7 @@ where
 
 impl OffClient<V0> {
     /// Returns the query builder for API V0.
-    #[must_use] 
+    #[must_use]
     pub fn query(&self) -> SearchQueryV0 {
         SearchQueryV0::new()
     }
@@ -327,7 +327,7 @@ impl SearchUrl for OffClient<V0> {
 
 impl OffClient<V2> {
     /// Returns the query builder for API V2.
-    #[must_use] 
+    #[must_use]
     pub fn query(&self) -> SearchQueryV2 {
         SearchQueryV2::new()
     }

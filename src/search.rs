@@ -157,7 +157,7 @@ impl SearchQueryV0 {
     /// * value - The searched criteria value.
     ///
     /// [`API docs`]: https://openfoodfacts.github.io/api-documentation/#5Filtering
-    #[must_use] 
+    #[must_use]
     pub fn criteria(mut self, criteria: &str, op: &str, value: &str) -> Self {
         self.state.criteria_index += 1;
         self.params.push((
@@ -191,7 +191,7 @@ impl SearchQueryV0 {
     /// If `ingredient` is "additives", the values "with", "without" and "indiferent"
     /// are converted to "`with_additives`", "`without_additives`" and "`indifferent_additives`"
     /// respectively.
-    #[must_use] 
+    #[must_use]
     pub fn ingredient(mut self, ingredient: &str, value: &str) -> Self {
         self.params.push((
             String::from(ingredient),
@@ -220,7 +220,7 @@ impl SearchQueryV0 {
     /// * value - The value to compare.
     ///
     /// [`API docs`]: https://openfoodfacts.github.io/api-documentation/#5Filtering
-    #[must_use] 
+    #[must_use]
     pub fn nutrient(mut self, nutriment: &str, op: &str, value: u32) -> Self {
         self.state.nutrient_index += 1;
         self.params.push((
@@ -295,7 +295,7 @@ impl SearchQueryV2 {
     ///
     /// [`openfoodfacts API docs`]: https://openfoodfacts.github.io/api-documentation/#5Filtering
     /// [`Search V2 API docs`]: https://wiki.openfoodfacts.org/Open_Food_Facts_Search_API_Version_2
-    #[must_use] 
+    #[must_use]
     pub fn criteria(mut self, criteria: &str, value: &str, lc: Option<&str>) -> Self {
         if let Some(lc) = lc {
             self.params
@@ -327,7 +327,7 @@ impl SearchQueryV2 {
     ///
     /// [`API docs`]: https://openfoodfacts.github.io/api-documentation/#5Filtering
     /// [`Search V2 API docs`]: https://wiki.openfoodfacts.org/Open_Food_Facts_Search_API_Version_2
-    #[must_use] 
+    #[must_use]
     pub fn nutrient(mut self, nutrient: &str, unit: &str, op: &str, value: u32) -> Self {
         let param = match op {
             "=" => (format!("{nutrient}_{unit}"), Value::from(value)),
@@ -340,13 +340,13 @@ impl SearchQueryV2 {
     }
 
     /// Convenience method to add a nutrient condition per 100 grams.
-    #[must_use] 
+    #[must_use]
     pub fn nutrient_100g(self, nutrient: &str, op: &str, value: u32) -> Self {
         self.nutrient(nutrient, "100g", op, value)
     }
 
     /// Convenience method to add a nutrient condition per serving.
-    #[must_use] 
+    #[must_use]
     pub fn nutrient_serving(self, nutrient: &str, op: &str, value: u32) -> Self {
         self.nutrient(nutrient, "serving", op, value)
     }
