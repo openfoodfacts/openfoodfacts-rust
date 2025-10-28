@@ -150,6 +150,7 @@ where
     ///     - nova_groups (*)
     ///     - nutrient_levels (*)
     ///     - states
+    ///
     /// (*) Only taxonomy. There is no facet equivalent.
     pub fn taxonomy(&self, taxonomy: &str) -> Result {
         let base_url = self.base_url_world()?; // force world locale.
@@ -179,9 +180,10 @@ where
     ///     - states
     ///     - stores
     ///     - traces
-    ///     The name may be given in english or localized, i.e. additives (world), additifs (fr).
+    ///
+    ///   The name may be given in english or localized, i.e. additives (world), additifs (fr).
     /// * output - Optional output parameters. This call supports only the locale,
-    ///     pagination, fields and nocache parameters.
+    ///   pagination, fields and nocache parameters.
     pub fn facet(&self, facet: &str, output: Option<Output>) -> Result {
         // Borrow output and extract Option<&Locale>
         let base_url = self.base_url(output.as_ref().and_then(|o| o.locale.as_ref()))?;
@@ -230,14 +232,14 @@ where
     /// # Arguments
     ///
     /// * what - A facet name or "category". The facet name is always the singular name
-    ///     of the face type name (i.e. brands -> brand, entry-dates -> entry-date, etc).
-    ///     The facet name or the "category" literal may be given either in english or
-    ///     localized, i.e. additives (world), additifs (fr), category (world), categorie (fr).
+    ///   of the face type name (i.e. brands -> brand, entry-dates -> entry-date, etc).
+    ///   The facet name or the "category" literal may be given either in english or
+    ///   localized, i.e. additives (world), additifs (fr), category (world), categorie (fr).
     /// * id - The localized id of the facet or category. The IDs are returned by calls
-    ///     to the corresponding `facet(<facet_type>)` or `categories()` endpoint. For example,
-    ///     the IDs for the `entry-date` facet are returned by the call `facet("entry-dates")`.
+    ///   to the corresponding `facet(<facet_type>)` or `categories()` endpoint. For example,
+    ///   the IDs for the `entry-date` facet are returned by the call `facet("entry-dates")`.
     /// * output - Optional output parameters. This call supports the locale, pagination
-    ///     and fields parameters.
+    ///   and fields parameters.
     pub fn products_by(&self, what: &str, id: &str, output: Option<Output>) -> Result {
         let base_url = self.base_url(output.as_ref().and_then(|o| o.locale.as_ref()))?;
         let url = base_url.join(&format!("{}/{}.json", what, id))?;
@@ -259,7 +261,7 @@ where
     ///
     /// * barcode - The product barcode.
     /// * output - Optional output parameters. This call only supports the locale
-    ///     and fields parameters.
+    ///   and fields parameters.
     pub fn product(&self, barcode: &str, output: Option<Output>) -> Result {
         let api_url = self.api_url(output.as_ref().and_then(|o| o.locale.as_ref()))?;
         let url = api_url.join(&format!("product/{}", barcode))?;

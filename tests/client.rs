@@ -30,7 +30,7 @@ fn facet() {
     let response = client.facet("brands", None).unwrap();
     assert_eq!(
         response.url().as_str(),
-        "https://world.openfoodfacts.org/brands.json"
+        "https://world.openfoodfacts.org/facets/brands.json"
     );
     assert!(response.status().is_success());
 }
@@ -46,7 +46,7 @@ fn facet_params() {
     let response = client.facet("brands", Some(output)).unwrap();
     assert_eq!(
         response.url().as_str(),
-        "https://fr.openfoodfacts.org/brands.json?page=22&fields=url&nocache=true"
+        "https://fr.openfoodfacts.org/facets/marques.json?page=22&fields=url&nocache=true"
     );
     assert!(response.status().is_success());
 }
@@ -57,7 +57,7 @@ fn categories() {
     let response = client.categories(None).unwrap();
     assert_eq!(
         response.url().as_str(),
-        "https://world.openfoodfacts.org/categories.json"
+        "https://world.openfoodfacts.org/facets/categories.json"
     );
     assert!(response.status().is_success());
 }
@@ -70,7 +70,7 @@ fn categories_params() {
     let response = client.categories(Some(output)).unwrap();
     assert_eq!(
         response.url().as_str(),
-        "https://fr.openfoodfacts.org/categories.json"
+        "https://fr.openfoodfacts.org/facets/categories.json"
     );
     assert!(response.status().is_success());
 }
@@ -107,7 +107,7 @@ fn products_by_facet() {
         .unwrap();
     assert_eq!(
         response.url().as_str(),
-        "https://world.openfoodfacts.org/additive/e322-lecithins.json"
+        "https://world.openfoodfacts.org/facets/additives/e322-lecithins.json"
     );
     assert!(response.status().is_success());
 }
@@ -124,7 +124,7 @@ fn products_by_facet_params() {
         .unwrap();
     assert_eq!(
         response.url().as_str(),
-        "https://fr.openfoodfacts.org/additif/e322-lecithines.json?page=22&page_size=20&fields=url"
+        "https://fr.openfoodfacts.org/facets/additifs/e322-lecithines.json?page=22&page_size=20&fields=url"
     );
     assert!(response.status().is_success());
 }
@@ -135,7 +135,7 @@ fn products_by_category() {
     let response = client.products_by("category", "cheeses", None).unwrap();
     assert_eq!(
         response.url().as_str(),
-        "https://world.openfoodfacts.org/category/cheeses.json"
+        "https://world.openfoodfacts.org/facets/categories/cheeses.json"
     );
     assert!(response.status().is_success());
 }
@@ -153,7 +153,7 @@ fn products_by_category_params() {
 
     assert_eq!(
         response.url().as_str(),
-        "https://fr.openfoodfacts.org/categorie/fromages.json?page=22&page_size=20&fields=url"
+        "https://fr.openfoodfacts.org/facets/categories/fromages.json?page=22&page_size=20&fields=url"
     );
     assert!(response.status().is_success());
 }
