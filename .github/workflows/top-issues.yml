@@ -12,6 +12,9 @@ on:
 jobs:
   ShowAndLabelTopIssues:
     name: Display and label top issues.
+    permissions:
+      contents: read
+      issues: write
     runs-on: ubuntu-latest
     steps:
     - name: Run top issues action
