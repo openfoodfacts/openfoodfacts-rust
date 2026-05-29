@@ -18,6 +18,8 @@ jobs:
 
     steps:
     - uses: actions/checkout@v6
+    - name: Install Rust toolchain
+      uses: dtolnay/rust-toolchain@stable
     - name: Build
       run: cargo build --verbose
     - name: Run tests
