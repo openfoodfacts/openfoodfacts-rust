@@ -1,5 +1,10 @@
 name: Add bugs to the relevant GitHub Projects
 
+permissions:
+  issues: write
+  projects: write
+  contents: read
+
 on:
   issues:
     types:
