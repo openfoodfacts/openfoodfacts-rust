@@ -6,6 +6,8 @@ This implements a wrapper around Open Food Facts API in Rust.
 Wiki page with a link to the Rust discussion channel: https://wiki.openfoodfacts.org/API/Rust
 
 [![GitHub Super-Linter](https://github.com/openfoodfacts/openfoodfacts-rust/workflows/Lint%20Code%20Base/badge.svg)](https://github.com/marketplace/actions/super-linter)
+![maintenance-status](https://img.shields.io/badge/maintenance-passively--maintained-yellowgreen.svg)
+
 
 
 ## Installation
@@ -55,11 +57,11 @@ fn main() {
 }
 ```
 
-More details about criteria here: https://openfoodfacts.github.io/api-documentation/#5Filtering
+More details about criteria here: https://openfoodfacts.github.io/documentation/docs/Product-Opener/api/#5Filtering
 
 
 ## Features
-Refer to the following API documentation: https://openfoodfacts.github.io/api-documentation/
+Refer to the following API documentation: https://openfoodfacts.github.io/documentation/docs/Product-Opener/api/
 
 
 List of methods of the client.
