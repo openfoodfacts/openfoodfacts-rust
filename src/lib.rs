@@ -70,13 +70,13 @@
 //! # Ok(())
 //! # }
 //! ```
-#![allow(dead_code)]
 pub use crate::client::{Error, HttpClient, HttpResponse, OffClient, Result};
 pub use crate::locale::Locale;
 pub use crate::output::Output;
 pub use crate::types::{V0, V2};
 
 use crate::types::Version;
+use base64::Engine;
 use std::env::consts::OS;
 
 mod client;
@@ -98,6 +98,7 @@ pub const VERSION: &str = "alpha";
 /// # Ok(())
 /// # }
 /// ```
+#[must_use]
 pub fn v0() -> OffBuilder<V0> {
     OffBuilder::new(V0 {})
 }
@@ -112,6 +113,7 @@ pub fn v0() -> OffBuilder<V0> {
 /// # Ok(())
 /// # }
 /// ```
+#[must_use]
 pub fn v2() -> OffBuilder<V2> {
     OffBuilder::new(V2 {})
 }
@@ -187,8 +189,9 @@ where
         // Default headers
         let mut headers = reqwest::header::HeaderMap::new();
         if let Some(ref auth) = self.auth {
-            // TODO: Needs to be encoded !
-            let basic_auth = format!("Basic {}:{}", auth.0, auth.1);
+            let credentials = base64::engine::general_purpose::STANDARD
+                .encode(format!("{}:{}", auth.0, auth.1));
+            let basic_auth = format!("Basic {}", credentials);
             headers.insert(
                 reqwest::header::AUTHORIZATION,
                 reqwest::header::HeaderValue::from_str(&basic_auth).unwrap(),

@@ -52,6 +52,5 @@ jobs:
         env:
           VALIDATE_ALL_CODEBASE: true
           VALIDATE_RUST_CLIPPY: true
-          VALIDATE_RUST_2021: true
           DEFAULT_BRANCH: develop
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -2,17 +2,20 @@
 name = "openfoodfacts"
 version = "0.1.0"
 authors = ["jjdo"]
-edition = "2018"
+edition = "2021"
+rust-version = "1.63"
+description = "A Rust client for the Open Food Facts API"
+license = "Apache-2.0"
+repository = "https://github.com/openfoodfacts/openfoodfacts-rust"
+keywords = ["openfoodfacts", "food", "api", "nutrition"]
+categories = ["api-bindings"]
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
 reqwest = {version = "0.12", features = ["blocking", "json"]}
-# From reqwest
 base64 = "0.22"
 url = "2.2"
 serde = "1.0"
 serde_json = "1.0.73"
 serde_urlencoded = "0.7"
-
-
