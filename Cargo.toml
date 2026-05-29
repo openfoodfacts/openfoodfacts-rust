@@ -13,7 +13,8 @@ categories = ["api-bindings"]
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-reqwest = {version = "0.12", features = ["blocking", "json"]}
+reqwest = { version = "0.13.1", features = ["blocking", "json", "query"] }
+# From reqwest
 base64 = "0.22"
 url = "2.2"
 serde = "1.0"
