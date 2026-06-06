@@ -14,8 +14,8 @@ Wiki page with a link to the Rust discussion channel: https://wiki.openfoodfacts
 In the __Cargo.toml__ file, under __[dependencies]__, add the following lines:
 ```toml
 openfoodfacts = { git = "https://github.com/openfoodfacts/openfoodfacts-rust.git"}
-reqwest = {version = "0.11", features = ["blocking", "json"]}
-serde_json = "1.0.73"
+reqwest = {version = "0.12", features = ["blocking", "json"]}
+serde_json = "1.0"
 ```
 
 ## Examples

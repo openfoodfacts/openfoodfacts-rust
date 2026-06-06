@@ -27,6 +27,7 @@ pub struct Output {
 
 impl Output {
     /// Creates a new Output object with defaults (all None).
+    #[must_use]
     pub fn new() -> Self {
         Self::default()
     }

@@ -69,8 +69,8 @@ impl Default for Locale {
 
 impl Display for Locale {
     fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
-        if self.lc.is_some() {
-            write!(f, "{}-{}", self.cc, self.lc.as_ref().unwrap())
+        if let Some(lc) = &self.lc {
+            write!(f, "{}-{}", self.cc, lc)
         } else {
             write!(f, "{}", self.cc)
         }
