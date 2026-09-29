@@ -67,7 +67,7 @@ fn categories_params() {
     let client = off::v0().build().unwrap();
     // Accepts only the locale parameter.
     let output = Output::new().locale(Locale::new("fr", None)).page(22);
-    let response = client.categories(Some(output)).unwrap();
+    let response = client.categories(Some(&output)).unwrap();
     assert_eq!(
         response.url().as_str(),
         "https://fr.openfoodfacts.org/facets/categories.json"
@@ -91,7 +91,7 @@ fn nutrients_params() {
     let client = off::v0().build().unwrap();
     // Accepts only the locale parameter.
     let output = Output::new().locale(Locale::new("fr", None)).page(22);
-    let response = client.nutrients(Some(output)).unwrap();
+    let response = client.nutrients(Some(&output)).unwrap();
     assert_eq!(
         response.url().as_str(),
         "https://fr.openfoodfacts.org/cgi/nutrients.pl"
@@ -197,7 +197,7 @@ fn search_v0() {
         .nutrient("fiber", "lt", 500)
         .nutrient("salt", "gt", 100);
 
-    let response = client.search(query, None).unwrap();
+    let response = client.search(&query, None).unwrap();
     assert_eq!(response.url().path(), "/cgi/search.pl");
     assert!(response.status().is_success());
 }
@@ -212,7 +212,7 @@ fn search_v2() {
         .nutrient_100g("fiber", "<", 500)
         .nutrient_serving("salt", "=", 100);
 
-    let response = client.search(query, None).unwrap();
+    let response = client.search(&query, None).unwrap();
     assert_eq!(response.url().path(), "/api/v2/search");
     assert!(response.status().is_success());
 }

@@ -10,18 +10,18 @@ use crate::types::{Params, Version, V0, V2};
 pub use reqwest::blocking::{Client as HttpClient, Response as HttpResponse};
 use url::{ParseError, Url};
 
-/// The error type of all OffClient methods.
+/// The error type of all `OffClient` methods.
 pub type Error = Box<dyn std::error::Error>;
 
-/// The return type of all OffClient methods.
+/// The return type of all `OffClient` methods.
 pub type Result = std::result::Result<HttpResponse, Error>;
 
 /// The OFF API client.
 ///
-/// The client owns a [reqwest::Client] object. One single OFF client should
+/// The client owns a [`reqwest::Client`] object. One single OFF client should
 /// be used per application.
 ///
-/// All methods return an [OffResult] object.
+/// All methods return an [`OffResult`] object.
 #[derive(Debug)]
 pub struct OffClient<V> {
     // The version marker.
@@ -35,7 +35,7 @@ pub struct OffClient<V> {
 /// Generates common OFF Urls.
 ///
 /// This trait provides the default implementations. Concrete types need only to
-/// implement the host_with_locale() method.
+/// implement the `host_with_locale()` method.
 pub(crate) trait Urls {
     /// Return the base URL with the given locale or the default locale if
     /// none given.
@@ -100,7 +100,7 @@ where
     fn host_with_locale(&self, locale: Option<&Locale>) -> std::result::Result<Url, ParseError> {
         let url = format!(
             "https://{}.openfoodfacts.org/",
-            locale.map_or(self.locale.to_string(), |l| l.to_string())
+            locale.map_or(self.locale.to_string(), std::string::ToString::to_string)
         );
         Url::parse(&url)
     }
@@ -141,20 +141,24 @@ where
     /// * taxonomy - The taxonomy name. One of the following:
     ///     - additives
     ///     - allergens
-    ///     - additives_classes (*)
+    ///     - `additives_classes` (*)
     ///     - brands
     ///     - countries
     ///     - ingredients
-    ///     - ingredients_analysis (*)
+    ///     - `ingredients_analysis` (*)
     ///     - languages
-    ///     - nova_groups (*)
-    ///     - nutrient_levels (*)
+    ///     - `nova_groups` (*)
+    ///     - `nutrient_levels` (*)
     ///     - states
     ///
     /// (*) Only taxonomy. There is no facet equivalent.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the URL cannot be parsed or the HTTP request fails.
     pub fn taxonomy(&self, taxonomy: &str) -> Result {
         let base_url = self.base_url_world()?; // force world locale.
-        let url = base_url.join(&format!("data/taxonomies/{}.json", taxonomy))?;
+        let url = base_url.join(&format!("data/taxonomies/{taxonomy}.json"))?;
         self.get(url, None)
     }
 
@@ -184,10 +188,14 @@ where
     ///   The name may be given in english or localized, i.e. additives (world), additifs (fr).
     /// * output - Optional output parameters. This call supports only the locale,
     ///   pagination, fields and nocache parameters.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the URL cannot be parsed or the HTTP request fails.
     pub fn facet(&self, facet: &str, output: Option<Output>) -> Result {
         // Borrow output and extract Option<&Locale>
         let base_url = self.base_url(output.as_ref().and_then(|o| o.locale.as_ref()))?;
-        let url = base_url.join(&format!("{}.json", facet))?;
+        let url = base_url.join(&format!("{facet}.json"))?;
         let params = output.map(|o| o.params(&["page", "page_size", "fields", "nocache"]));
         self.get(url, params.as_ref())
     }
@@ -201,8 +209,12 @@ where
     /// # Arguments
     ///
     /// * output - Optional output parameters. This call supports only the locale parameter.
-    pub fn categories(&self, output: Option<Output>) -> Result {
-        let base_url = self.base_url(output.as_ref().and_then(|o| o.locale.as_ref()))?;
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the URL cannot be parsed or the HTTP request fails.
+    pub fn categories(&self, output: Option<&Output>) -> Result {
+        let base_url = self.base_url(output.and_then(|o| o.locale.as_ref()))?;
         let url = base_url.join("categories.json")?;
         self.get(url, None)
     }
@@ -217,8 +229,12 @@ where
     ///
     /// * output - Optional output parameter. This call supports only the locale
     ///   parameter.
-    pub fn nutrients(&self, output: Option<Output>) -> Result {
-        let cgi_url = self.cgi_url(output.as_ref().and_then(|o| o.locale.as_ref()))?;
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the URL cannot be parsed or the HTTP request fails.
+    pub fn nutrients(&self, output: Option<&Output>) -> Result {
+        let cgi_url = self.cgi_url(output.and_then(|o| o.locale.as_ref()))?;
         let url = cgi_url.join("nutrients.pl")?;
         self.get(url, None)
     }
@@ -240,9 +256,13 @@ where
     ///   the IDs for the `entry-date` facet are returned by the call `facet("entry-dates")`.
     /// * output - Optional output parameters. This call supports the locale, pagination
     ///   and fields parameters.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the URL cannot be parsed or the HTTP request fails.
     pub fn products_by(&self, what: &str, id: &str, output: Option<Output>) -> Result {
         let base_url = self.base_url(output.as_ref().and_then(|o| o.locale.as_ref()))?;
-        let url = base_url.join(&format!("{}/{}.json", what, id))?;
+        let url = base_url.join(&format!("{what}/{id}.json"))?;
         let params = output.map(|o| o.params(&["page", "page_size", "fields"]));
         self.get(url, params.as_ref())
     }
@@ -262,9 +282,13 @@ where
     /// * barcode - The product barcode.
     /// * output - Optional output parameters. This call only supports the locale
     ///   and fields parameters.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the URL cannot be parsed or the HTTP request fails.
     pub fn product(&self, barcode: &str, output: Option<Output>) -> Result {
         let api_url = self.api_url(output.as_ref().and_then(|o| o.locale.as_ref()))?;
-        let url = api_url.join(&format!("product/{}", barcode))?;
+        let url = api_url.join(&format!("product/{barcode}"))?;
         let params = output.map(|o| o.params(&["fields"]));
         self.get(url, params.as_ref())
     }
@@ -276,12 +300,17 @@ where
 
 impl OffClient<V0> {
     /// Returns the query builder for API V0.
+    #[must_use]
     pub fn query(&self) -> SearchQueryV0 {
         SearchQueryV0::new()
     }
 
     /// Sends the given search query.
-    pub fn search(&self, query: SearchQueryV0, output: Option<Output>) -> Result {
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the URL cannot be parsed or the HTTP request fails.
+    pub fn search(&self, query: &SearchQueryV0, output: Option<Output>) -> Result {
         SearchQueryV0::search(query, self, output)
     }
 }
@@ -298,12 +327,17 @@ impl SearchUrl for OffClient<V0> {
 
 impl OffClient<V2> {
     /// Returns the query builder for API V2.
+    #[must_use]
     pub fn query(&self) -> SearchQueryV2 {
         SearchQueryV2::new()
     }
 
     /// Sends the search query.
-    pub fn search(&self, query: SearchQueryV2, output: Option<Output>) -> Result {
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the URL cannot be parsed or the HTTP request fails.
+    pub fn search(&self, query: &SearchQueryV2, output: Option<Output>) -> Result {
         SearchQueryV2::search(query, self, output)
     }
 
@@ -314,7 +348,11 @@ impl OffClient<V2> {
     ///
     /// `GET https://{locale}.openfoodfacts.org/api/v2/search?code=<code>,<code>,..`
     ///
-    /// TODO: Support iterator (FromIter ?)
+    /// TODO: Support iterator (`FromIter` ?)
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the URL cannot be parsed or the HTTP request fails.
     pub fn products(&self, barcodes: &str, output: Option<Output>) -> Result {
         // Borrow output and extract Option<&Locale>
         let url = self.search_url(output.as_ref().and_then(|o| o.locale.as_ref()))?;

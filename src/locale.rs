@@ -36,7 +36,7 @@ use std::fmt::{Display, Formatter};
 /// ```
 ///
 /// Locales can be converted into a String "{cc}" or "{cc}-{lc}" with
-/// [Locale::to_string()].
+/// [`Locale::to_string()`].
 #[derive(Debug, PartialEq)]
 pub struct Locale {
     pub cc: String,
