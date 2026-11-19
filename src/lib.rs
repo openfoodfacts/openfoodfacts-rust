@@ -7,13 +7,13 @@
 //!
 //! ## Obtaining a client
 //!
-//! In order to obtain an [crate::client::OffClient] of the desired version, one has to obtain
+//! In order to obtain an [`crate::client::OffClient`] of the desired version, one has to obtain
 //! the corresponding builder, set any desired options and build the client. If no options are
 //! set, the builder produces a client with
 //!
 //! * locale: "world"
 //! * auth: None (only needed for write operations)
-//! * user agent: "OffRustClient - {OS name} - Version {lib version} - {github repo URL}"
+//! * user agent: "`OffRustClient` - {OS name} - Version {lib version} - {github repo URL}"
 //!
 //! ```
 //! use openfoodfacts::{self as off, Locale};
@@ -65,7 +65,7 @@
 //!     .criteria("brands", "Nestlé", Some("fr"))
 //!     .criteria("categories", "-cheese", None)
 //!     .sort_by(off::search::SortBy::EcoScore);
-//! let response = client.search(query, None)?;
+//! let response = client.search(&query, None)?;
 //! assert!(response.status().is_success());
 //! # Ok(())
 //! # }
@@ -88,7 +88,7 @@ mod types;
 /// The version of this library.
 pub const VERSION: &str = "alpha";
 
-/// Returns a builder to build an OffClient supporting the API V0.
+/// Returns a builder to build an `OffClient` supporting the API V0.
 ///
 /// ```
 /// use openfoodfacts as off;
@@ -98,11 +98,12 @@ pub const VERSION: &str = "alpha";
 /// # Ok(())
 /// # }
 /// ```
+#[must_use]
 pub fn v0() -> OffBuilder<V0> {
     OffBuilder::new(V0 {})
 }
 
-/// Returns a builder to build an OffClient supporting the API V2.
+/// Returns a builder to build an `OffClient` supporting the API V2.
 ///
 /// ```
 /// use openfoodfacts as off;
@@ -112,6 +113,7 @@ pub fn v0() -> OffBuilder<V0> {
 /// # Ok(())
 /// # }
 /// ```
+#[must_use]
 pub fn v2() -> OffBuilder<V2> {
     OffBuilder::new(V2 {})
 }
@@ -139,25 +141,32 @@ where
     V: Version + Copy,
 {
     /// Sets the default locale.
+    #[must_use]
     pub fn locale(mut self, value: Locale) -> Self {
         self.locale = value;
         self
     }
 
     /// Sets the authentication credentials.
+    #[must_use]
     pub fn auth(mut self, username: &str, password: &str) -> Self {
         self.auth = Some(Auth(username.to_string(), password.to_string()));
         self
     }
 
     /// Sets the user agent string.
+    #[must_use]
     pub fn user_agent(mut self, user_agent: &str) -> Self {
         self.user_agent = Some(user_agent.to_string());
         self
     }
 
-    /// Creates a new OffClient for the `V` version of the API, with the current
+    /// Creates a new `OffClient` for the `V` version of the API, with the current
     /// builder options. Consumes the builder.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the HTTP client cannot be built.
     pub fn build(self) -> std::result::Result<OffClient<V>, reqwest::Error> {
         let client = self.build_http_client()?;
         Ok(OffClient::new(self.v, self.locale, client))
